@@ -6,6 +6,7 @@ set(CMAKE_C_STANDARD "11")
 set(CMAKE_C_FLAGS "-g -Wall -Wextra -Wno-sign-compare")
 
 add_library(err err.c)
+add_library(Utils Utils.c)
 add_library(HashMap HashMap.c)
 add_library(Tree Tree.c)
 add_library(TreeNode TreeNode.c)
