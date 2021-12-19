@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "Utils.h"
+
 // A structure representing a mapping from keys to values.
 // Keys are C-strings (null-terminated char*), all distinct.
 // Values are non-null pointers (void*, which you can cast to any other pointer type).
@@ -15,13 +17,13 @@ HashMap* hmap_new();
 void hmap_free(HashMap* map);
 
 // Get the value stored under `key`, or NULL if not present.
-void* hmap_get(HashMap* map, const char* key);
+Pair* hmap_get(HashMap* map, const char* key, access_type a_type);
 
 // Insert a `value` under `key` and return true,
 // or do nothing and return false if `key` already exists in the map.
 // `value` must not be NULL.
 // (The caller can free `key` at any time - the map internally uses a copy of it).
-bool hmap_insert(HashMap* map, const char* key, void* value);
+int hmap_insert(HashMap* map, const char* key, void* value, bool unlock_bucket_after);
 
 // Remove the value under `key` and return true (the value is not free'd),
 // or do nothing and return false if `key` was not present.

@@ -237,5 +237,32 @@ int rw_remove(ReadWrite *rw)
             return err;
     }
 
+    if ((err = pthread_mutex_unlock(&rw->lock)) != 0)
+        return err;
+
     return 0;
+}
+
+int rw_action_wrapper(ReadWrite *rw, access_type a_type) {
+    switch (a_type)
+    {
+    case START_READ:
+        return rw_start_read(rw);
+        break;
+    case END_READ:
+        return rw_end_read(rw);
+        break;
+    case START_WRITE:
+        return rw_start_write(rw);
+        break;
+    case END_WRITE:
+        return rw_end_write(rw);
+        break;
+    case ERASE:
+        return rw_erase(rw);
+        break;
+    default:
+        syserr("switch action_wrapper broken");
+        break;
+    }
 }

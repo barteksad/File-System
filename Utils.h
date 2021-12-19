@@ -11,10 +11,19 @@ typedef struct ReadWrite
     int to_erase; // only for folders not buckets
 } ReadWrite;
 
+typedef enum access_type {
+    START_READ,
+    START_WRITE,
+    END_READ,
+    END_WRITE,
+    ERASE,
+} access_type;
+
 typedef struct Pair{
     void* value;
     ReadWrite* pair_guard;
-};
+} Pair;
+
 int rw_init(struct ReadWrite *);
 
 int rw_destroy(struct ReadWrite *);
@@ -28,4 +37,6 @@ int rw_start_write(ReadWrite *rw);
 int rw_end_write(ReadWrite *rw);
 
 int rw_remove(ReadWrite *rw);
+
+int rw_action_wrapper(ReadWrite *rw, access_type a_type);
 
