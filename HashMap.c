@@ -1,23 +1,26 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <pthread.h>
+#include <pthread.h>
 
 #include "HashMap.h"
+#include "Utils.h"
 
 // We fix the number of hash buckets for simplicity.
 #define N_BUCKETS 8
 
-typedef struct Pair Pair;
+typedef struct MapPair MapPair;
 
-struct Pair {
+struct MapPair {
     char* key;
     void* value;
-    Pair* next; // Next item in a single-linked list.
+    MapPair* next; // Next item in a single-linked list.
+    ReadWrite map_pair_guard;
 };
 
 struct HashMap {
-    Pair* buckets[N_BUCKETS]; // Linked lists of key-value pairs.
+    MapPair* buckets[N_BUCKETS]; // Linked lists of key-value pairs.
+    ReadWrite* buckets_guards[N_BUCKETS];
     size_t size; // total number of entries in map.
 };
 
@@ -29,27 +32,40 @@ HashMap* hmap_new()
     if (!map)
         return NULL;
     memset(map, 0, sizeof(HashMap));
+
     return map;
 }
 
 void hmap_free(HashMap* map)
 {
     for (int h = 0; h < N_BUCKETS; ++h) {
-        for (Pair* p = map->buckets[h]; p;) {
-            Pair* q = p;
+        for (MapPair* p = map->buckets[h]; p;) {
+            MapPair* q = p;
             p = p->next;
             free(q->key);
             free(q);
+        }
+        if(map->buckets_guards[h] != NULL) {
+            rw_destroy(map->buckets_guards[h]);
+            free(map->buckets_guards[h]);
         }
     }
     free(map);
 }
 
-static Pair* hmap_find(HashMap* map, int h, const char* key)
+static MapPair* hmap_find(HashMap* map, int h, const char* key)
 {
-    for (Pair* p = map->buckets[h]; p; p = p->next) {
-        if (strcmp(key, p->key) == 0)
+    for (MapPair* mp = map->buckets[h]; mp; mp = mp->next) {
+        if (strcmp(key, mp->key) == 0) {
+            if (map->buckets_guards[h] == NULL) {
+                map->buckets_guards[h] = malloc(sizeof(ReadWrite));
+                rw_init(map->buckets_guards[h]);
+            }
+            
+            Pair p = malloc(sizeof(Pair));
+
             return p;
+        }
     }
     return NULL;
 }
@@ -57,7 +73,7 @@ static Pair* hmap_find(HashMap* map, int h, const char* key)
 void* hmap_get(HashMap* map, const char* key)
 {
     int h = get_hash(key);
-    Pair* p = hmap_find(map, h, key);
+    MapPair* p = hmap_find(map, h, key);
     if (p)
         return p->value;
     else
@@ -69,10 +85,10 @@ bool hmap_insert(HashMap* map, const char* key, void* value)
     if (!value)
         return false;
     int h = get_hash(key);
-    Pair* p = hmap_find(map, h, key);
+    MapPair* p = hmap_find(map, h, key);
     if (p)
         return false; // Already exists.
-    Pair* new_p = malloc(sizeof(Pair));
+    MapPair* new_p = malloc(sizeof(MapPair));
     new_p->key = strdup(key);
     new_p->value = value;
     new_p->next = map->buckets[h];
@@ -84,9 +100,9 @@ bool hmap_insert(HashMap* map, const char* key, void* value)
 bool hmap_remove(HashMap* map, const char* key)
 {
     int h = get_hash(key);
-    Pair** pp = &(map->buckets[h]);
+    MapPair** pp = &(map->buckets[h]);
     while (*pp) {
-        Pair* p = *pp;
+        MapPair* p = *pp;
         if (strcmp(key, p->key) == 0) {
             *pp = p->next;
             free(p->key);
@@ -112,7 +128,7 @@ HashMapIterator hmap_iterator(HashMap* map)
 
 bool hmap_next(HashMap* map, HashMapIterator* it, const char** key, void** value)
 {
-    Pair* p = it->pair;
+    MapPair* p = it->pair;
     while (!p && it->bucket < N_BUCKETS - 1) {
         p = map->buckets[++it->bucket];
     }
