@@ -2,6 +2,7 @@
     "files.associations": {
         "regex.h": "c",
         "errno.h": "c",
-        "stdatomic.h": "c"
+        "stdatomic.h": "c",
+        "hashmap.h": "c"
     }
 }

@@ -1,4 +1,7 @@
-#pragma once
+#ifndef UTILS
+#define UTILS
+
+#include "HashMap.h"
 
 typedef struct ReadWrite
 {
@@ -11,18 +14,14 @@ typedef struct ReadWrite
     int to_erase; // only for folders not buckets
 } ReadWrite;
 
-typedef enum access_type {
+typedef enum AccessType {
     START_READ,
+    END_READ, // = START_READ + 1
     START_WRITE,
-    END_READ,
-    END_WRITE,
+    END_WRITE, // START_WRITE + 1
     REMOVE,
-} access_type;
-
-// typedef struct Pair{
-//     void* value;
-//     ReadWrite* bucket_guard;
-// } Pair;
+    NONE,
+} AccessType;
 
 int rw_init(struct ReadWrite *);
 
@@ -38,5 +37,6 @@ int rw_end_write(ReadWrite *rw);
 
 int rw_remove(ReadWrite *rw);
 
-int rw_action_wrapper(ReadWrite *rw, access_type a_type);
+int rw_action_wrapper(ReadWrite *rw, AccessType a_type);
 
+#endif // define utils

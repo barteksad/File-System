@@ -1,31 +1,44 @@
-#pragma once
+#ifndef HASH_MAP
+#define HASH_MAP
+
+
 #include <stdbool.h>
 #include <sys/types.h>
+
+#include "Utils.h"
 
 // A structure representing a mapping from keys to values.
 // Keys are C-strings (null-terminated char*), all distinct.
 // Values are non-null pointers (void*, which you can cast to any other pointer type).
 typedef struct HashMap HashMap;
 
+// A structure representing return type of hash map function
+typedef struct Pair
+{
+    HashMap *value;
+    ReadWrite *bucket_guard;
+} Pair;
+
 // Create a new, empty map.
 HashMap* hmap_new();
 
 // Clear the map and free its memory. This frees the map and the keys
 // copied by hmap_insert, but does not free any values.
-void hmap_free(HashMap* map);
+// returns errno if pthread objects destruction faild
+int hmap_free(HashMap* map);
 
 // Get the value stored under `key`, or NULL if not present.
-void* hmap_get(HashMap* map, const char* key);
+Pair* hmap_get(HashMap* map, const char* key, AccessType a_type);
 
 // Insert a `value` under `key` and return true,
 // or do nothing and return false if `key` already exists in the map.
 // `value` must not be NULL.
 // (The caller can free `key` at any time - the map internally uses a copy of it).
-bool hmap_insert(HashMap* map, const char* key, void* value);
+int hmap_insert(HashMap* map, const char* key, void* value, bool has_access);
 
 // Remove the value under `key` and return true (the value is not free'd),
 // or do nothing and return false if `key` was not present.
-bool hmap_remove(HashMap* map, const char* key);
+Pair* hmap_remove(HashMap* map, const char* key);
 
 // Return the number of elements in the map.
 size_t hmap_size(HashMap* map);
@@ -55,3 +68,5 @@ struct HashMapIterator {
     int bucket;
     void* pair;
 };
+
+#endif // define hashmap

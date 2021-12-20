@@ -118,6 +118,8 @@ int rw_end_read(ReadWrite *rw)
         return ENOENT;
     }
 
+    rw->rcount--;
+
     if (rw->rcount == 0)
     {
 
@@ -246,7 +248,7 @@ int rw_remove(ReadWrite *rw)
     return 0;
 }
 
-int rw_action_wrapper(ReadWrite *rw, access_type a_type)
+int rw_action_wrapper(ReadWrite *rw, AccessType a_type)
 {
     switch (a_type)
     {
@@ -264,6 +266,9 @@ int rw_action_wrapper(ReadWrite *rw, access_type a_type)
         break;
     case REMOVE:
         return rw_remove(rw);
+        break;
+    case NONE:
+        return 0;
         break;
     default:
         syserr("switch action_wrapper broken");

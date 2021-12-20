@@ -1,4 +1,4 @@
-#include "HashMap.h"
+#include "../HashMap.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -25,7 +25,7 @@ void try_insert(HashMap* map, const char * key ,void* value, bool has_access)
 }
 
 
-int main(void)
+int seq_ok1(void)
 {
     Pair* p;
 
