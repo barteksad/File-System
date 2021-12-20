@@ -119,6 +119,8 @@ int rw_end_read(ReadWrite *rw)
     }
 
     if (rw->rcount == 0)
+    {
+
         if (rw->wwait > 0)
         {
             if ((err = pthread_cond_signal(&rw->writers)) != 0)
@@ -129,6 +131,7 @@ int rw_end_read(ReadWrite *rw)
             if ((err = pthread_cond_signal(&rw->readers)) != 0)
                 return err;
         }
+    }
 
     if ((err = pthread_mutex_unlock(&rw->lock)) != 0)
         return err; // syserr (err, "unlock failed");
@@ -243,7 +246,8 @@ int rw_remove(ReadWrite *rw)
     return 0;
 }
 
-int rw_action_wrapper(ReadWrite *rw, access_type a_type) {
+int rw_action_wrapper(ReadWrite *rw, access_type a_type)
+{
     switch (a_type)
     {
     case START_READ:
@@ -258,11 +262,13 @@ int rw_action_wrapper(ReadWrite *rw, access_type a_type) {
     case END_WRITE:
         return rw_end_write(rw);
         break;
-    case ERASE:
-        return rw_erase(rw);
+    case REMOVE:
+        return rw_remove(rw);
         break;
     default:
         syserr("switch action_wrapper broken");
         break;
     }
+
+    return EINVAL;
 }

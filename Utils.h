@@ -16,13 +16,13 @@ typedef enum access_type {
     START_WRITE,
     END_READ,
     END_WRITE,
-    ERASE,
+    REMOVE,
 } access_type;
 
-typedef struct Pair{
-    void* value;
-    ReadWrite* pair_guard;
-} Pair;
+// typedef struct Pair{
+//     void* value;
+//     ReadWrite* bucket_guard;
+// } Pair;
 
 int rw_init(struct ReadWrite *);
 

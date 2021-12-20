@@ -22,11 +22,22 @@ int main(void)
 {
     HashMap* map = hmap_new();
     hmap_insert(map, "a", hmap_new());
+    hmap_insert(map, "b", hmap_new());
+    hmap_insert(map, "c", hmap_new());
     print_map(map);
 
     HashMap* child = (HashMap*)hmap_get(map, "a");
     hmap_free(child);
     hmap_remove(map, "a");
+
+    child = (HashMap*)hmap_get(map, "b");
+    hmap_free(child);
+    hmap_remove(map, "b");
+
+    child = (HashMap*)hmap_get(map, "c");
+    hmap_free(child);
+    hmap_remove(map, "c");
+    
     print_map(map);
 
     hmap_free(map);
