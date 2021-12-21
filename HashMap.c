@@ -58,7 +58,7 @@ int hmap_free(HashMap *map)
 
     for (int h = 0; h < N_BUCKETS; ++h)
     {
-        for (MapPair *mp = map->buckets[h]; mp; mp = mp->next)
+        for (MapPair *mp = map->buckets[h]; mp;)
         {
             MapPair *q = mp;
             mp = mp->next;
@@ -171,6 +171,9 @@ Pair *hmap_remove(HashMap *map, const char *key)
         }
         mpp = &(mp->next);
     }
+
+    if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
+        return NULL;
 
     errno = EEXIST;
     return NULL;

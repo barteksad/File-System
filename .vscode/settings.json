@@ -4,6 +4,8 @@
         "errno.h": "c",
         "stdatomic.h": "c",
         "hashmap.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "assert.h": "c",
+        "err.h": "c"
     }
 }
