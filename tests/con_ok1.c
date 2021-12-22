@@ -9,15 +9,28 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "pthread.h"
-#include "assert.h"
+#include <assert.h>
 
-static int N_THREADS = 100;
+
+
+static int N_THREADS = 1000;
+
 
 void* run1(void *data)
 {
+    Pair *p;
     HashMap *map = (HashMap *)data;
 
     try_insert(map, "a", hmap_new(), false);
+
+    p = hmap_remove(map, "a");
+    if (p != NULL)
+    {
+        rw_action_wrapper(p->bucket_guard, END_WRITE);
+        hmap_free(p->value);
+        free(p);
+    }
+
     try_insert(map, "b", hmap_new(), false);
     try_insert(map, "c", hmap_new(), false);
     try_insert(map, "d", hmap_new(), false);
@@ -29,6 +42,14 @@ void* run1(void *data)
     try_insert(map, "j", hmap_new(), false);
     try_insert(map, "k", hmap_new(), false);
     try_insert(map, "l", hmap_new(), false);
+
+    p = hmap_remove(map, "l");
+    if (p != NULL)
+    {
+        rw_action_wrapper(p->bucket_guard, END_WRITE);
+        hmap_free(p->value);
+        free(p);
+    }
 
     return 0;
 }
@@ -62,9 +83,9 @@ int con_ok1(void)
     }
     // printf("%ld\n", map);
 
-    assert(hmap_size(map) == 12);
+    assert(hmap_size(map) == 10);
 
-    const char *tmp[12];
+    char *tmp[12];
     tmp[0] = "a";
     tmp[1] = "b";
     tmp[2] = "c";
@@ -82,14 +103,14 @@ int con_ok1(void)
 
     for (size_t i = 0; i < 12; i++)
     {
-        p = hmap_remove(map, &tmp[i]);
+        p = hmap_remove(map, tmp[i]);
         if (p == NULL)
             continue;
         rw_action_wrapper(p->bucket_guard, END_WRITE);
         hmap_free(p->value);
         free(p);
     }
-    // printf("%ld\n", map);
+    printf("%ld\n", hmap_size(map));
 
     assert(hmap_size(map) == 0);
 

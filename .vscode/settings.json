@@ -6,6 +6,7 @@
         "hashmap.h": "c",
         "stdbool.h": "c",
         "assert.h": "c",
-        "err.h": "c"
+        "err.h": "c",
+        "utils.h": "c"
     }
 }

@@ -1,7 +1,10 @@
 #ifndef UTILS
 #define UTILS
 
-#include "HashMap.h"
+#include <stdbool.h>
+#include <pthread.h>
+
+static size_t MAX_PATH_LEN = 4095;
 
 typedef struct ReadWrite
 {
@@ -38,5 +41,7 @@ int rw_end_write(ReadWrite *rw);
 int rw_remove(ReadWrite *rw);
 
 int rw_action_wrapper(ReadWrite *rw, AccessType a_type);
+
+bool is_path_valid(const char * path);
 
 #endif // define utils

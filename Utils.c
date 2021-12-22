@@ -277,3 +277,45 @@ int rw_action_wrapper(ReadWrite *rw, AccessType a_type)
 
     return EINVAL;
 }
+
+bool is_path_valid(const char * path)
+{
+    bool first_slash = true;
+    int since_slash = -1;
+
+    for(size_t i = 0; i <= MAX_PATH_LEN; i++)
+    {
+        if (path[i] == '\0')
+        {
+            if(since_slash != 0)
+                return false;
+            else
+                return true;
+        }
+
+        if(first_slash)
+        {
+            if(path[i] != '/')
+                return false;
+            
+            first_slash = false;
+            since_slash = 0;
+
+            continue;
+        }
+
+        if (path[i] == '/') 
+        {
+            if(since_slash == 0)
+                return false;
+            else
+                since_slash = 0;
+        }
+        else if (path[i] < 'a' || path[i] > 'z')
+            return false;
+        else
+            since_slash++;
+    }
+
+    return false;
+}
