@@ -11,12 +11,7 @@
 #include "pthread.h"
 #include <assert.h>
 
-
-
-static int N_THREADS = 1000;
-
-
-void* run1(void *data)
+static void* run1(void *data)
 {
     Pair *p;
     HashMap *map = (HashMap *)data;
@@ -56,6 +51,8 @@ void* run1(void *data)
 
 int con_ok1(void)
 {
+    static int N_THREADS = 1000;
+
     Pair *p;
     HashMap *map = hmap_new();
     // printf("%ld\n", map);
@@ -106,8 +103,8 @@ int con_ok1(void)
         p = hmap_remove(map, tmp[i]);
         if (p == NULL)
             continue;
-        rw_action_wrapper(p->bucket_guard, END_WRITE);
         hmap_free(p->value);
+        rw_action_wrapper(p->bucket_guard, END_WRITE);
         free(p);
     }
     printf("%ld\n", hmap_size(map));

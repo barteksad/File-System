@@ -24,7 +24,7 @@ int path_ok1(void)
     const char * bad1 = "";
     const char * bad2 = "/a";
     const char * bad3 = "//";
-    const char * bad4 = "\/";
+    const char * bad4 = "\//";
     const char * bad5 = "\0";
     const char * bad6 = "a/";
     const char * bad7 = "/a/s/d/f/g/h/j";

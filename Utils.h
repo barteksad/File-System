@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-static size_t MAX_PATH_LEN = 4095;
-
 typedef struct ReadWrite
 {
     pthread_mutex_t lock;

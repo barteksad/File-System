@@ -72,6 +72,7 @@ int hmap_free(HashMap *map)
     {
         err = rw_destroy(map->buckets_guards[h]);
         free(map->buckets_guards[h]);
+        
     }
 
     free(map);
@@ -86,6 +87,8 @@ static MapPair *hmap_find(HashMap *map, int h, const char *key)
         if (strcmp(key, mp->key) == 0)
             return mp;
     }
+
+    errno = EEXIST;
     return NULL;
 }
 
@@ -160,12 +163,6 @@ Pair *hmap_remove(HashMap *map, const char *key)
             free(mp->key);
             free(mp);
             map->size--;
-            // if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
-            // {
-            //     hmap_free(p->value);
-            //     free(p);
-            //     return NULL;
-            // }
 
             return p;
         }

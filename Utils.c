@@ -5,6 +5,8 @@
 #include "HashMap.h"
 #include "Utils.h"
 
+static size_t MAX_PATH_LEN = 4095;
+
 int rw_init(ReadWrite *rw)
 {
     int err;
