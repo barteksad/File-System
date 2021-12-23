@@ -149,6 +149,13 @@ Pair *hmap_remove(HashMap *map, const char *key)
         MapPair *mp = *mpp;
         if (strcmp(key, mp->key) == 0)
         {
+            if(hmap_size(mp->value) > 0)
+            {
+                errno = ENOTEMPTY;
+                rw_action_wrapper(map->buckets_guards[h], END_WRITE);
+                return NULL;
+            }
+            
             *mpp = mp->next;
 
             Pair *p = malloc(sizeof(Pair));

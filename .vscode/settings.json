@@ -8,6 +8,9 @@
         "assert.h": "c",
         "err.h": "c",
         "utils.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "tree.h": "c",
+        "stdlib.h": "c",
+        "types.h": "c"
     }
 }

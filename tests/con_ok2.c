@@ -68,7 +68,7 @@ static void* run2(void *data)
 
 int con_ok2(void)
 {
-    static int N_THREADS = 1000;
+    static int N_THREADS = 100;
 
     Tree *t = tree_new();
     pthread_t threads[N_THREADS];
@@ -95,7 +95,7 @@ int con_ok2(void)
     }
 
     printf("\n\n\n");
-    print_map(get_tree_map(t));
+    print_map(get_tree_map(t), 0);
 
     char *tmp[12];
     tmp[0] =  "/a/";
@@ -110,11 +110,6 @@ int con_ok2(void)
     tmp[9] =  "/j/";
     tmp[10] = "/k/";
     tmp[11] = "/l/";
-
-    // for (size_t i = 0; i < 12; i++)
-    // {
-    //     tree_remove(t, tmp[i]);
-    // }
 
     tree_free(t);
 

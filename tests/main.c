@@ -12,6 +12,7 @@
 #include "seq_ok3.c"
 #include "con_ok1.c"
 #include "con_ok2.c"
+#include "con_ok3.c"
 #include "path_ok1.c"
 
 int main(void) {
@@ -27,6 +28,8 @@ int main(void) {
         syserr("error seq_ok3!");
     if (con_ok2() != 0)
         syserr("error con_ok1!");
+    if (con_ok3() != 0)
+        syserr("error con_ok3!");
     printf("\n\nTEST PASSED!\n\n");
     return 0;
 }

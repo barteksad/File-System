@@ -28,16 +28,19 @@ typedef struct PathGetter
 {
     char* path;
     ReadWrite *guards[2047];
+    HashMap *map;
     size_t guard_write_pos;
 
 }PathGetter;
 
-static PathGetter* pg_create(char* _path)
+static PathGetter* pg_create(char* _path, HashMap *_map)
 {
     PathGetter* pg = malloc(sizeof(PathGetter));
 
     if(!pg)
         return NULL;
+
+    pg->map = _map;
     
     pg->path = _path;
     pg->guard_write_pos = 0;
@@ -55,7 +58,7 @@ static int pg_free(PathGetter * pg)
 {
     int err;
 
-    for(int i = pg->guard_write_pos - 1; i >= 0; i++)
+    for(int i = pg->guard_write_pos - 1; i >= 0; i--)
     {
         if((err = rw_action_wrapper(pg->guards[i], END_READ)))
             return err;
@@ -70,7 +73,7 @@ static HashMap* pg_get(PathGetter * pg)
 	char delim[] = "/";
     char *path = strtok(pg->path, delim);
 
-    HashMap *tmp = NULL;
+    HashMap *tmp = pg->map;
     Pair *p;
 
     while(path != NULL)
@@ -80,7 +83,10 @@ static HashMap* pg_get(PathGetter * pg)
         {
             pg_free(pg);
             if(p)
+            {
+                rw_action_wrapper(p->bucket_guard, END_READ);
                 free(p);
+            }
             return NULL;
         }
         else
@@ -118,7 +124,7 @@ int tree_create(Tree* tree, const char* path)
     bname = basename(basec);
 
     bool swap_bd_name=false;;
-    if(strlen(bname) > 0)
+    if(strcmp(dname, "/") == 0)
         swap_bd_name = true;
 
     HashMap *map = tree->tree_map;
@@ -126,7 +132,7 @@ int tree_create(Tree* tree, const char* path)
 
     if(!swap_bd_name)
     {
-        pg = pg_create(bname);
+        pg = pg_create(dname, map);
         map  = pg_get(pg);
     }
 
@@ -160,7 +166,7 @@ int tree_remove(Tree* tree, const char* path)
     bname = basename(basec);
 
     bool swap_bd_name=false;;
-    if(strlen(bname) > 0)
+    if(strcmp(dname, "/") == 0)
         swap_bd_name = true;
 
     HashMap *map = tree->tree_map;
@@ -168,7 +174,7 @@ int tree_remove(Tree* tree, const char* path)
 
     if(!swap_bd_name)
     {
-        pg = pg_create(bname);
+        pg = pg_create(bname, map);
         map  = pg_get(pg);
     }
 
@@ -181,13 +187,8 @@ int tree_remove(Tree* tree, const char* path)
 
     if (p)
     {
-        if (hmap_size(p->value) > 0)
-            err = ENOTEMPTY;
-        else
-        {
-            hmap_free(p->value);
-            err = rw_action_wrapper(p->bucket_guard, END_WRITE);
-        }
+        hmap_free(p->value);
+        err = rw_action_wrapper(p->bucket_guard, END_WRITE);
         free(p);
     }
     else

@@ -83,6 +83,8 @@ int rw_start_read(ReadWrite *rw)
         return ENOENT;
     }
 
+    rw->rcount++;
+    
     if (rw->rwait > 0 && rw->change == 1)
     {
         if ((err = pthread_cond_signal(&rw->readers)) != 0)
@@ -91,7 +93,6 @@ int rw_start_read(ReadWrite *rw)
     else
         rw->change = 0;
 
-    rw->rcount++;
 
     if ((err = pthread_mutex_unlock(&rw->lock)) != 0)
         return err;
@@ -105,6 +106,8 @@ int rw_end_read(ReadWrite *rw)
 
     if ((err = pthread_mutex_lock(&rw->lock)) != 0)
         return err;
+
+    rw->rcount--;
 
     if (rw->to_erase == 1)
     {
@@ -120,7 +123,6 @@ int rw_end_read(ReadWrite *rw)
         return ENOENT;
     }
 
-    rw->rcount--;
 
     if (rw->rcount == 0)
     {

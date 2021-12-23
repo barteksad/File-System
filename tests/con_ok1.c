@@ -96,7 +96,7 @@ int con_ok1(void)
     tmp[10] = "k";
     tmp[11] = "l";
 
-    print_map(map);
+    print_map(map, 0);
 
     for (size_t i = 0; i < 12; i++)
     {

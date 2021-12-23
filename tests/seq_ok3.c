@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int seq_ok3(void)
+int seq_ok3()
 {
     Tree *t = tree_new();
 
@@ -19,7 +19,7 @@ int seq_ok3(void)
     tree_create(t, "/c/");
 
     HashMap *map = get_tree_map(t);
-    print_map(map);
+    print_map(map, 0);
 
     tree_remove(t, "/a/");
     tree_remove(t, "/b/");
