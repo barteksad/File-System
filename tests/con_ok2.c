@@ -95,7 +95,7 @@ int con_ok2(void)
     }
 
     printf("\n\n\n");
-    print_map(get_tree_map(t), 0);
+    // print_map(get_tree_map(t), 0);
 
     char *tmp[12];
     tmp[0] =  "/a/";

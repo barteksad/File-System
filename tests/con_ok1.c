@@ -51,7 +51,7 @@ static void* run1(void *data)
 
 int con_ok1(void)
 {
-    static int N_THREADS = 1000;
+    static int N_THREADS = 100;
 
     Pair *p;
     HashMap *map = hmap_new();
@@ -96,7 +96,7 @@ int con_ok1(void)
     tmp[10] = "k";
     tmp[11] = "l";
 
-    print_map(map, 0);
+    // print_map(map, 0);
 
     for (size_t i = 0; i < 12; i++)
     {

@@ -20,8 +20,8 @@ static void* run3(void *data)
     unsigned int *mystate = malloc(sizeof(unsigned int));
     *mystate = time(NULL) ^ getpid() ^ pthread_self();   
 
-    FILE *in_file  = fopen("/mnt/c/Users/barte/OneDrive/Desktop/uw/PW/File System/tests/random_paths.txt", "r");
-    char *path;
+    FILE *in_file  = fopen("/home/students/inf/b/bs429589/PW/File-System/tests/random_paths.txt", "r");
+    char *path = malloc(sizeof(char) * 4096);
 
     int i = 1;
     while((fscanf(in_file, "%s", path)) == 1)
@@ -44,6 +44,8 @@ static void* run3(void *data)
         i++;
     }
 
+    free(path);
+
     fclose(in_file);
 
     free(mystate);
@@ -53,7 +55,7 @@ static void* run3(void *data)
 
 int con_ok3(void)
 {
-    static int N_THREADS = 100;
+    static int N_THREADS = 200;
 
     Tree *t = tree_new();
     pthread_t threads[N_THREADS];
@@ -80,7 +82,7 @@ int con_ok3(void)
     }
 
     printf("\n\n\n");
-    print_map(get_tree_map(t), 0);
+    // print_map(get_tree_map(t), 0);
 
     // char *tmp[12];
     // tmp[0] =  "/a/";
