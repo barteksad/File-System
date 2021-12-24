@@ -18,13 +18,24 @@ int seq_ok3()
     tree_create(t, "/b/");
     tree_create(t, "/c/");
 
-    HashMap *map = get_tree_map(t);
-    print_map(map, 0);
+    char *l = tree_list(t, "/");
+    printf("\n\n%s\n\n", l);
+    free(l);
 
     tree_remove(t, "/a/");
     tree_remove(t, "/b/");
     tree_remove(t, "/c/");
 
+
+    tree_create(t, "/a/");
+    tree_create(t, "/b/");
+    tree_create(t, "/c/");
+
+    tree_move(t, "/a/", "/b/c/");
+
+    l = tree_list(t, "/");
+    printf("\n\n%s\n\n", l);
+    free(l);
 
     tree_free(t);
 

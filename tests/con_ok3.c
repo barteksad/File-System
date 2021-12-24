@@ -18,9 +18,9 @@ static void* run3(void *data)
     Tree *t = (Tree *) data;
 
     unsigned int *mystate = malloc(sizeof(unsigned int));
-    *mystate = time(NULL) ^ getpid() ^ pthread_self();   
+    *mystate = time(NULL) ^ getpid() ^ pthread_self();
 
-    FILE *in_file  = fopen("/home/students/inf/b/bs429589/PW/File-System/tests/random_paths.txt", "r");
+    FILE *in_file  = fopen("/mnt/c/Users/barte/OneDrive/Desktop/uw/PW/File System/tests/random_paths.txt", "r");
     char *path = malloc(sizeof(char) * 4096);
 
     int i = 1;
@@ -35,11 +35,13 @@ static void* run3(void *data)
         }
         else
         {
-            // printf("remove %d\n", i);
+            tree_move(t, path, path);
+            // printf("\n\n\n");
+            char *l = tree_list(t, "/");
+            // printf("%s\n", l);
+            free(l);
             tree_remove(t, path);
         }
-
-        // break;
 
         i++;
     }
@@ -55,7 +57,7 @@ static void* run3(void *data)
 
 int con_ok3(void)
 {
-    static int N_THREADS = 200;
+    static int N_THREADS = 1;
 
     Tree *t = tree_new();
     pthread_t threads[N_THREADS];
@@ -80,23 +82,6 @@ int con_ok3(void)
         if ((err = pthread_join(threads[i], &retval)) != 0)
             syserr(err, "join 1 failed");
     }
-
-    printf("\n\n\n");
-    // print_map(get_tree_map(t), 0);
-
-    // char *tmp[12];
-    // tmp[0] =  "/a/";
-    // tmp[1] =  "/b/";
-    // tmp[2] =  "/c/";
-    // tmp[3] =  "/d/";
-    // tmp[4] =  "/e/";
-    // tmp[5] =  "/f/";
-    // tmp[6] =  "/g/";
-    // tmp[7] =  "/h/";
-    // tmp[8] =  "/i/";
-    // tmp[9] =  "/j/";
-    // tmp[10] = "/k/";
-    // tmp[11] = "/l/";
 
     tree_free(t);
 

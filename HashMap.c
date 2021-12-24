@@ -25,8 +25,6 @@ struct HashMap
     atomic_size_t size; // total number of entries in map.
 };
 
-static unsigned int get_hash(const char *key);
-
 HashMap *hmap_new()
 {
     HashMap *map = malloc(sizeof(HashMap));
@@ -72,7 +70,6 @@ int hmap_free(HashMap *map)
     {
         err = rw_destroy(map->buckets_guards[h]);
         free(map->buckets_guards[h]);
-        
     }
 
     free(map);
@@ -110,6 +107,7 @@ Pair *hmap_get(HashMap *map, const char *key, AccessType a_type)
     return p;
 }
 
+
 int hmap_insert(HashMap *map, const char *key, void *value, bool has_access)
 {
     if (!value)
@@ -138,24 +136,27 @@ int hmap_insert(HashMap *map, const char *key, void *value, bool has_access)
     return 0;
 }
 
-Pair *hmap_remove(HashMap *map, const char *key)
+Pair *hmap_remove(HashMap *map, const char *key, bool has_access, bool must_be_empty)
 {
     int h = get_hash(key);
-    if (rw_action_wrapper(map->buckets_guards[h], START_WRITE) != 0)
-        return NULL;
+    if(!has_access)
+    {
+        if (rw_action_wrapper(map->buckets_guards[h], START_WRITE) != 0)
+            return NULL;
+    }
     MapPair **mpp = &(map->buckets[h]);
     while (*mpp)
     {
         MapPair *mp = *mpp;
         if (strcmp(key, mp->key) == 0)
         {
-            if(hmap_size(mp->value) > 0)
+            if (must_be_empty && hmap_size(mp->value) > 0)
             {
                 errno = ENOTEMPTY;
                 rw_action_wrapper(map->buckets_guards[h], END_WRITE);
                 return NULL;
             }
-            
+
             *mpp = mp->next;
 
             Pair *p = malloc(sizeof(Pair));
@@ -196,20 +197,20 @@ HashMapIterator hmap_iterator(HashMap *map)
 
 bool hmap_next(HashMap *map, HashMapIterator *it, const char **key, void **value)
 {
-    MapPair *p = it->pair;
-    while (!p && it->bucket < N_BUCKETS - 1)
+    MapPair *mp = it->pair;
+    while (!mp && it->bucket < N_BUCKETS - 1)
     {
-        p = map->buckets[++it->bucket];
+        mp = map->buckets[++it->bucket];
     }
-    if (!p)
+    if (!mp)
         return false;
-    *key = p->key;
-    *value = p->value;
-    it->pair = p->next;
+    *key = mp->key;
+    *value = mp->value;
+    it->pair = mp->next;
     return true;
 }
 
-static unsigned int get_hash(const char *key)
+unsigned int get_hash(const char *key)
 {
     unsigned int hash = 17;
     while (*key)
@@ -218,4 +219,50 @@ static unsigned int get_hash(const char *key)
         ++key;
     }
     return hash % N_BUCKETS;
+}
+
+char * map_list(HashMap *map)
+{
+    int err = 0;
+
+    for (int i = 0; i < N_BUCKETS; i++)
+    {
+        if ((err = rw_action_wrapper(map->buckets_guards[i], START_READ)) != 0)
+        {
+            while (i-- >= 0)
+                rw_action_wrapper(map->buckets_guards[i], END_READ);
+            return NULL;
+        }
+    }
+
+    size_t list_size = 128;
+    const char *key = NULL;
+    void *value;
+    char *list = (char *)malloc(sizeof(char) * list_size);
+    list[0] = '\0';
+    bool first = true;
+
+    HashMapIterator it = hmap_iterator(map);
+    while (hmap_next(map, &it, &key, &value))
+    {
+        if(strlen(list) + strlen(key) + 3 >= list_size)
+        {
+            list = realloc(list, sizeof(char) * list_size * 2);
+            list_size*= 2;
+        }
+
+        if (!first)
+            strcat(list, ",");
+        else
+            first = false;
+        strcat(list, key);
+    }
+
+    for (int i = 0; i < N_BUCKETS; i++)
+    {
+        if ((err = rw_action_wrapper(map->buckets_guards[i], END_READ)) != 0)
+            return NULL;
+    }
+
+    return list;
 }

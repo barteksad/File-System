@@ -38,7 +38,7 @@ int hmap_insert(HashMap* map, const char* key, void* value, bool has_access);
 
 // Remove the value under `key` and return true (the value is not free'd),
 // or do nothing and return false if `key` was not present.
-Pair* hmap_remove(HashMap* map, const char* key);
+Pair *hmap_remove(HashMap *map, const char *key, bool has_access, bool must_be_empty);
 
 // Return the number of elements in the map.
 size_t hmap_size(HashMap* map);
@@ -47,6 +47,8 @@ typedef struct HashMapIterator HashMapIterator;
 
 // Return an iterator to the map. See `hmap_next`.
 HashMapIterator hmap_iterator(HashMap* map);
+
+unsigned int get_hash(const char *key);
 
 // Set `*key` and `*value` to the current element pointed by iterator and
 // move the iterator to the next element.
@@ -68,5 +70,7 @@ struct HashMapIterator {
     int bucket;
     void* pair;
 };
+
+char * map_list(HashMap *map);
 
 #endif // define hashmap

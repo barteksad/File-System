@@ -18,7 +18,7 @@ static void* run1(void *data)
 
     try_insert(map, "a", hmap_new(), false);
 
-    p = hmap_remove(map, "a");
+    p = hmap_remove(map, "a",  false, true);
     if (p != NULL)
     {
         rw_action_wrapper(p->bucket_guard, END_WRITE);
@@ -38,7 +38,7 @@ static void* run1(void *data)
     try_insert(map, "k", hmap_new(), false);
     try_insert(map, "l", hmap_new(), false);
 
-    p = hmap_remove(map, "l");
+    p = hmap_remove(map, "l",  false, true);
     if (p != NULL)
     {
         rw_action_wrapper(p->bucket_guard, END_WRITE);
@@ -100,7 +100,7 @@ int con_ok1(void)
 
     for (size_t i = 0; i < 12; i++)
     {
-        p = hmap_remove(map, tmp[i]);
+        p = hmap_remove(map, tmp[i],  false, true);
         if (p == NULL)
             continue;
         hmap_free(p->value);
@@ -112,6 +112,8 @@ int con_ok1(void)
     assert(hmap_size(map) == 0);
 
     // printf("%ld\n", map);
+
+    
 
     hmap_free(map);
 

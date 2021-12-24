@@ -37,7 +37,7 @@ int seq_ok2(void)
 
         for (size_t i = 0; t[i] != '\0'; i++)
         {
-            p = hmap_remove(map, &t[i]);
+            p = hmap_remove(map, &t[i],  false, true);
             if (p == NULL)
                 continue;
             rw_action_wrapper(p->bucket_guard, END_WRITE);
@@ -66,7 +66,7 @@ int seq_ok2(void)
 
     for (size_t i = 0; t[i] != '\0'; i++)
     {
-        p = hmap_remove(map, &t[i]);
+        p = hmap_remove(map, &t[i],  false, true);
         if (p == NULL)
             continue;
         rw_action_wrapper(p->bucket_guard, END_WRITE);
