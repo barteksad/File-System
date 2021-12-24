@@ -31,11 +31,11 @@ int seq_ok3()
     tree_create(t, "/b/");
     tree_create(t, "/c/");
 
-    tree_move(t, "/a/", "/b/c/");
+    // tree_move(t, "/a/", "/b/c/");
 
-    l = tree_list(t, "/");
-    printf("\n\n%s\n\n", l);
-    free(l);
+    // l = tree_list(t, "/");
+    // printf("\n\n%s\n\n", l);
+    // free(l);
 
     tree_free(t);
 

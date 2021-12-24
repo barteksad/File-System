@@ -35,7 +35,7 @@ static void* run3(void *data)
         }
         else
         {
-            tree_move(t, path, path);
+            // tree_move(t, path, path);
             // printf("\n\n\n");
             char *l = tree_list(t, "/");
             // printf("%s\n", l);
