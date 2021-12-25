@@ -22,7 +22,7 @@ struct Tree
 typedef struct PathGetter
 {
     char *path;
-    ReadWrite **guards;
+    ReadWrite *guards[2050];
     HashMap *map;
     size_t guard_write_pos;
     AccessType first_acces;
@@ -37,11 +37,11 @@ static PathGetter *pg_create(const char *_path, HashMap *_map)
         return NULL;
 
     pg->map = _map;
-    pg->guards = malloc(2047 * sizeof (ReadWrite*));
+    // pg->guards = malloc(2047 * sizeof (ReadWrite*));
     if(!pg->guards)
         syserr("dup");
 
-    printf("init: %s : %ld\n", _path, strlen(_path));
+    // printf("init: %s : %ld\n", _path, strlen(_path));
     pg->path = (char *) malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
     if(!pg->path)
         syserr("dup");
@@ -80,29 +80,26 @@ static int pg_free(PathGetter *pg)
     if(pg->path)    
         free(pg->path);
 
-    free(pg->guards);
-
     free(pg);
-    pg = NULL;
     return 0;
 }
 
 static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
 {
     pg->first_acces = first_acces;
-    
-    char component[MAX_FOLDER_NAME_LENGTH + 1];
-    const char* subpath = pg->path;
+
+    char delim[] = "/";
+    char *path = strtok(pg->path, delim);
 
     HashMap *tmp = pg->map;
     Pair *p;
 
-    while (subpath = split_path(subpath, component))
+    while (path != NULL)
     {
         if (pg->guard_write_pos == 0)
-            p = hmap_get(tmp, subpath, first_acces);
+            p = hmap_get(tmp, path, first_acces);
         else
-            p = hmap_get(tmp, subpath, START_READ);
+            p = hmap_get(tmp, path, START_READ);
         if (!p || !p->value)
         {
             if (p)
@@ -113,7 +110,6 @@ static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
                     rw_action_wrapper(p->bucket_guard, END_READ);
                 free(p);
             }
-            pg_free(pg);
             return NULL;
         }
         else
@@ -123,6 +119,7 @@ static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
         }
 
         free(p);
+        path = strtok(NULL, delim);
     }
 
     return tmp;
@@ -164,11 +161,16 @@ int tree_create(Tree *tree, const char *path)
     if (!swap_bd_name)
     {
         pg = pg_create(dname, map);
-        map = pg_get(pg, START_READ);
+        if(pg)
+            map = pg_get(pg, START_READ);
+        else
+            map= NULL;    
     }
 
     if (!map)
     {
+        if(pg)
+            pg_free(pg);
         free(dirc);
         free(basec);
         return errno;
@@ -213,11 +215,16 @@ int tree_remove(Tree *tree, const char *path)
     if (!swap_bd_name)
     {
         pg = pg_create(bname, map);
-        map = pg_get(pg, START_READ);
+        if(pg)
+            map = pg_get(pg, START_READ);
+        else
+            map = NULL;
     }
 
     if (!map)
     {
+        if(pg)
+            pg_free(pg);
         free(dirc);
         free(basec);
         return errno;
@@ -256,14 +263,21 @@ char *tree_list(Tree *tree, const char *path)
     if (strcmp(path, "/") != 0)
     {
         pg = pg_create(path, map);
-        map = pg_get(pg, START_READ);
+        if(pg)
+            map = pg_get(pg, START_READ);
+        else
+            map = NULL;    
     }
 
     if (!map)
+    {
+        if(pg)
+            pg_free(pg);
         return NULL;
+    }
 
-    // char *list = map_list(map);
-    char *list = make_map_contents_string(map);
+    char *list = map_list(map);
+    // char *list = make_map_contents_string(map);
 
     if (pg)
         pg_free(pg);

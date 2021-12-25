@@ -30,7 +30,7 @@ int main(void) {
     // if (con_ok2() != 0)
     //     syserr("error con_ok1!");
     // if (con_ok3() != 0)
-        // syserr("error con_ok3!");
+    //     syserr("error con_ok3!");
     // if (con_ok4() != 0)
     //     syserr("error con_ok4!");
     if (con_ok5() != 0)

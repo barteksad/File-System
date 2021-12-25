@@ -5,6 +5,7 @@
 #include <stdatomic.h>
 
 #include "HashMap.h"
+#include "path_utils.h"
 
 // We fix the number of hash buckets for simplicity.
 #define N_BUCKETS 8
@@ -236,28 +237,30 @@ char * map_list(HashMap *map)
         }
     }
 
-    size_t list_size = 128;
-    const char *key = NULL;
-    void *value;
-    char *list = (char *)malloc(sizeof(char) * list_size);
-    list[0] = '\0';
-    bool first = true;
+    char* list = make_map_contents_string(map);
 
-    HashMapIterator it = hmap_iterator(map);
-    while (hmap_next(map, &it, &key, &value))
-    {
-        if(strlen(list) + strlen(key) + 3 >= list_size)
-        {
-            list = realloc(list, sizeof(char) * list_size * 2);
-            list_size*= 2;
-        }
+    // size_t list_size = 128;
+    // const char *key = NULL;
+    // void *value;
+    // char *list = (char *)malloc(sizeof(char) * list_size);
+    // list[0] = '\0';
+    // bool first = true;
 
-        if (!first)
-            strcat(list, ",");
-        else
-            first = false;
-        strcat(list, key);
-    }
+    // HashMapIterator it = hmap_iterator(map);
+    // while (hmap_next(map, &it, &key, &value))
+    // {
+    //     if(strlen(list) + strlen(key) + 3 >= list_size)
+    //     {
+    //         list = realloc(list, sizeof(char) * list_size * 2);
+    //         list_size*= 2;
+    //     }
+
+    //     if (!first)
+    //         strcat(list, ",");
+    //     else
+    //         first = false;
+    //     strcat(list, key);
+    // }
 
     for (int i = 0; i < N_BUCKETS; i++)
     {

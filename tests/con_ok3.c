@@ -30,7 +30,6 @@ static void* run3(void *data)
         
         if(x)
         {
-            // printf("create %d\n", i);
             tree_create(t, path);
         }
         else

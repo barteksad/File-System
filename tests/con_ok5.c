@@ -10,45 +10,66 @@
 #include "pthread.h"
 #include <assert.h>
 
+static int N_TIMES = 1000;
+
 static void* creator1(void *data)
 {
-    for(int i = 0; i < 1; i++)
-    {
-        Tree *t = (Tree *) data;
-        char *l;
+    // Tree *t = (Tree *) data;
+    // for(int i = 0; i < N_TIMES; i++)
+    // {
+    //     char *l;
 
-        tree_create(t, "/a/");
-        tree_create(t, "/b/");
-        tree_create(t, "/a/c/");
+    //     tree_create(t, "/a/");
+    //     tree_create(t, "/a/b/");
+    //     tree_create(t, "/a/b/c/");
 
+    //     l = tree_list(t, "/a/b/");
+    //     if(l)
+    //         free(l);
 
-    }
+    // }
         return 0;
 }
 
 static void* mover1(void *data)
 {
-    for(int i = 0; i < 1; i++)
-    {
-        Tree *t = (Tree *) data;
-        char *l;
+    // Tree *t = (Tree *) data;
+    // for(int i = 0; i < N_TIMES; i++)
+    // {
+    //     char *l;
 
-        tree_move(t, "/a/c/", "/b/c/");
+    //     tree_move(t, "/a/b/c/", "/a/b/d/");
 
-    }
+    // }
         return 0;
 }
 
 static void* destructer1(void *data)
 {
-    for(int i = 0; i < 1; i++)
-    {
-        Tree *t = (Tree *) data;
-        char *l;
+    // Tree *t = (Tree *) data;
+    // for(int i = 0; i < N_TIMES; i++)
+    // {
+    //     char *l;
 
-        tree_remove(t, "/b/c/");
-        tree_remove(t, "/b/");
-        tree_remove(t, "/a/");
+    //     tree_remove(t, "/a/b/c/");
+    //     tree_remove(t, "/a/b/");
+    //     tree_remove(t, "/a/");
+
+
+    // }
+    return 0;
+}
+
+static void* mixer1(void *data)
+{
+    Tree *t = (Tree *) data;
+    char *l;
+    for(int i = 0; i < N_TIMES; i++)
+    {
+
+        tree_create(t, "/x/");
+        tree_move(t, "/x/", "/y/");
+        tree_remove(t, "/y/");
 
     }
     return 0;
@@ -56,10 +77,10 @@ static void* destructer1(void *data)
 
 int con_ok5(void)
 {
-    static int N_GROUPS = 1;
+    static int N_GROUPS = 10;
 
     Tree *t = tree_new();
-    pthread_t threads[N_GROUPS * 3];
+    pthread_t threads[N_GROUPS * 4];
     pthread_attr_t attr;
     int err;
     void *retval;
@@ -76,6 +97,8 @@ int con_ok5(void)
         if ((err = pthread_create(&threads[i*3 + 1], &attr, mover1, t)) != 0)
             syserr(err, "create 1 failed");
         if ((err = pthread_create(&threads[i*3 + 2], &attr, destructer1, t)) != 0)
+            syserr(err, "create 1 failed");
+        if ((err = pthread_create(&threads[i*3 + 3], &attr, mixer1, t)) != 0)
             syserr(err, "create 1 failed");
     }
 

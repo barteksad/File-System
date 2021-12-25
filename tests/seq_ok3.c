@@ -17,30 +17,8 @@ int seq_ok3()
     {
 
         Tree *t = tree_new();
-
-        tree_create(t, "/a/");
-        tree_create(t, "/b/");
-        tree_create(t, "/c/");
-
         char *l = tree_list(t, "/");
-        free(l);
 
-        tree_remove(t, "/a/");
-        tree_remove(t, "/b/");
-        tree_remove(t, "/c/");
-
-        tree_create(t, "/a/");
-        tree_create(t, "/b/");
-        tree_create(t, "/c/");
-
-        tree_move(t, "/a/", "/b/c/");
-
-        l = tree_list(t, "/");
-        free(l);
-
-        tree_free(t);
-
-        t = tree_new();
         tree_create(t, "/a/");
         tree_create(t, "/a/c/");
         tree_move(t, "/a/", "/b/");
