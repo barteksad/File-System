@@ -10,6 +10,7 @@
 #include <libgen.h>
 
 #include "Tree.h"
+#include "err.h"
 #include "HashMap.h"
 #include "path_utils.h"
 
@@ -24,6 +25,7 @@ typedef struct PathGetter
     ReadWrite *guards[2047];
     HashMap *map;
     size_t guard_write_pos;
+    AccessType first_acces;
 
 } PathGetter;
 
@@ -54,17 +56,24 @@ static int pg_free(PathGetter *pg)
 
     for (int i = pg->guard_write_pos - 1; i >= 0; i--)
     {
-        if ((err = rw_action_wrapper(pg->guards[i], END_READ)))
+        if (i == 0)
+            err = rw_action_wrapper(pg->guards[i], pg->first_acces + 1);
+        else
+            err = rw_action_wrapper(pg->guards[i], END_READ);
+        if (err != 0)
             return err;
     }
 
-    free(pg->path);
+    if (pg->path)
+        free(pg->path);
     free(pg);
     return 0;
 }
 
-static HashMap *pg_get(PathGetter *pg)
+static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
 {
+    pg->first_acces = first_acces;
+
     char delim[] = "/";
     char *path = strtok(pg->path, delim);
 
@@ -73,12 +82,18 @@ static HashMap *pg_get(PathGetter *pg)
 
     while (path != NULL)
     {
-        p = hmap_get(tmp, path, START_READ);
+        if (pg->guard_write_pos == 0)
+            p = hmap_get(tmp, path, first_acces);
+        else
+            p = hmap_get(tmp, path, START_READ);
         if (!p || !p->value)
         {
             if (p)
             {
-                rw_action_wrapper(p->bucket_guard, END_READ);
+                if (pg->guard_write_pos == 0 && first_acces != NONE)
+                    rw_action_wrapper(p->bucket_guard, first_acces + 1);
+                else
+                    rw_action_wrapper(p->bucket_guard, END_READ);
                 free(p);
             }
             pg_free(pg);
@@ -96,7 +111,6 @@ static HashMap *pg_get(PathGetter *pg)
 
     return tmp;
 }
-
 
 Tree *tree_new()
 {
@@ -118,7 +132,7 @@ int tree_create(Tree *tree, const char *path)
 
     dirc = strdup(path);
     basec = strdup(path);
-    if(!dirc || !basec)
+    if (!dirc || !basec)
         return -1;
 
     dname = dirname(dirc);
@@ -134,7 +148,7 @@ int tree_create(Tree *tree, const char *path)
     if (!swap_bd_name)
     {
         pg = pg_create(dname, map);
-        map = pg_get(pg);
+        map = pg_get(pg, START_READ);
     }
 
     if (!map)
@@ -167,9 +181,9 @@ int tree_remove(Tree *tree, const char *path)
 
     dirc = strdup(path);
     basec = strdup(path);
-    if(!dirc || !basec)
+    if (!dirc || !basec)
         return -1;
-        
+
     dname = dirname(dirc);
     bname = basename(basec);
 
@@ -183,7 +197,7 @@ int tree_remove(Tree *tree, const char *path)
     if (!swap_bd_name)
     {
         pg = pg_create(bname, map);
-        map = pg_get(pg);
+        map = pg_get(pg, START_READ);
     }
 
     if (!map)
@@ -215,7 +229,7 @@ int tree_remove(Tree *tree, const char *path)
     return err;
 }
 
-char* tree_list(Tree* tree, const char* path)
+char *tree_list(Tree *tree, const char *path)
 {
     if (!is_path_valid(path))
         return NULL;
@@ -226,7 +240,7 @@ char* tree_list(Tree* tree, const char* path)
     if (strcmp(path, "/") != 0)
     {
         pg = pg_create(path, map);
-        map = pg_get(pg);
+        map = pg_get(pg, START_READ);
     }
 
     if (!map)
@@ -254,7 +268,6 @@ char* tree_list(Tree* tree, const char* path)
 //     char *source_dirc, *source_basec, *source_bname, *source_dname;
 //     char *target_dirc, *target_basec, *target_bname, *target_dname;
 
-
 //     source_dirc = strdup(source);
 //     source_basec = strdup(source);
 //     if(!source_dirc || !source_basec)
@@ -264,7 +277,7 @@ char* tree_list(Tree* tree, const char* path)
 //     target_basec = strdup(target);
 //     if(!target_dirc || !target_basec)
 //         return -1;
-        
+
 //     source_dname = dirname(source_dirc);
 //     source_bname = basename(source_basec);
 
@@ -272,7 +285,6 @@ char* tree_list(Tree* tree, const char* path)
 //     target_bname = basename(target_basec);
 
 //     bool same_dname = (strcmp(source_dname, target_dname) == 0);
-
 
 //     bool swap_source_bd_name = false;
 //     if (strcmp(source_dname, "/") == 0)
@@ -293,7 +305,6 @@ char* tree_list(Tree* tree, const char* path)
 //         free(source_basec);
 //         return ENOENT;
 //     }
-        
 
 //     bool swap_target_bd_name = false;
 //     if (strcmp(target_dname, "/") == 0)
@@ -314,9 +325,6 @@ char* tree_list(Tree* tree, const char* path)
 //         free(target_basec);
 //         return ENOENT;
 //     }
-
-
-
 
 //     int err;
 //     bool same_bucket = false;
@@ -391,16 +399,18 @@ char* tree_list(Tree* tree, const char* path)
 //     free(source_removed);
 // }
 
-int tree_move(Tree* tree, const char* source, const char* target)
+int tree_move(Tree *tree, const char *source, const char *target)
 {
     if (!is_path_valid(source) || !is_path_valid(target))
         return EINVAL;
 
-    if(strcmp(source, "/") == 0)
+    if (strcmp(source, "/") == 0)
         return EBUSY;
 
-    if(strstr(source, target) != NULL)
+    if (strstr(source, target) != NULL)
         return -2; // przenoszenie drzewa do poddrzewa
+
+    int err = 0;
 
     char *shared, *source_rest, *target_rest;
     get_shared_path(source, target, &shared, &source_rest, &target_rest);
@@ -410,11 +420,11 @@ int tree_move(Tree* tree, const char* source, const char* target)
 
     if (strcmp(shared, "/") != 0)
     {
-        pg_shared = pg_create(dname, map);
-        shared_map = pg_get(pg);
+        pg_shared = pg_create(shared, shared_map);
+        shared_map = pg_get(pg_shared, START_READ);
     }
 
-    if(!shared_map)
+    if (!shared_map)
     {
         free(shared);
         free(source_rest);
@@ -425,8 +435,36 @@ int tree_move(Tree* tree, const char* source, const char* target)
     char *source_dirc, *source_first, *source_bname, *source_dname;
     char *target_dirc, *target_first, *target_bname, *target_dname;
 
-    source_dirc = split_path(source_rest, &source_first);
-    target_dirc = split_path(target_dirc, &target_first);
+    source_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    target_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    source_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    target_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    if (!source_first || !target_first || !source_bname || !target_bname)
+        syserr("malloc failed!");
+
+    source_dirc = split_path(source_rest, source_first);
+    target_dirc = split_path(target_rest, target_first);
+
+    if (strcmp(source_first, "") == 0)
+        strcpy(source_first, source_rest);
+    if (strcmp(target_rest, "") == 0)
+        strcpy(target_first, target_rest);
+
+    if (strcmp(source_dirc, "/") == 0)
+        source_dname = make_path_to_parent(source_rest, source_bname);
+    else
+        source_dname = make_path_to_parent(source_dirc, source_bname);
+
+    if (strcmp(target_dirc, "/") == 0)
+        target_dname = make_path_to_parent(target_rest, target_bname);
+    else
+        target_dname = make_path_to_parent(target_dirc, target_bname);
+
+    if (source_dirc == NULL)
+        source_dirc = source_rest;
+
+    if (target_dirc == NULL)
+        target_dirc = target_rest;
 
     Pair *p = NULL;
     AccessType shared_atype;
@@ -439,30 +477,224 @@ int tree_move(Tree* tree, const char* source, const char* target)
 
     if (get_hash(source_first) == get_hash(target_first))
     {
-        AccessType a
-        if(strcmp(source_dirc,"/") == 0 || strcmp(target_dirc, "/") == 0)
-            shared_atype = START_READ;
-        else    
-            shared_atype = START_WRITE
 
-        p = hmap_get(source_first, shared_atype);
-
-        if(!p)
-            return -1;
-        if(!p->value)
+        if (strcmp(source_dirc, "/") == 0 || strcmp(target_dirc, "/") == 0)
+            shared_atype = START_WRITE;
+        else
         {
-            pg_free(pg_shared)
-            rw_action_wrapper(p->bucket_guard, shared_atype+1);
+            source_dname = make_path_to_parent(source_rest, NULL);
+            target_dname = make_path_to_parent(target_rest, NULL);
+            shared_atype = START_READ;
+        }
+
+        p = hmap_get(source_map, source_first, shared_atype);
+
+        if (!p)
+            return -1;
+        if (!p->value)
+        {
+            pg_free(pg_shared);
+            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
             free(p);
+            return ENOENT;
+        }
+
+        pg_source = pg_create(source_dname, source_map);
+        source_map = pg_get(pg_source, NONE);
+
+        pg_target = pg_create(target_dname, target_map);
+        target_map = pg_get(pg_target, NONE);
+
+        if (!source_map || !target_map)
+        {
+            // pg_free(pg_source);
+            // pg_free(pg_target);
+            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
+            free(p);
+            free(source_first);
+            free(target_first);
+            free(source_bname);
+            free(target_bname);
+            if (pg_shared)
+                pg_free(pg_shared);
+            free(shared);
+            free(source_rest);
+            free(target_rest);
             return ENOENT;
         }
 
         Pair *source_p;
         Pair *target_p;
-        if(strcmp(source_dirc,"/") == 0)
+
+        if (strcmp(source_dname, "/") == 0)
+            source_p = hmap_get(source_map, source_bname, NONE);
+        else
+            source_p = hmap_get(source_map, source_bname, START_WRITE);
+
+        if (strcmp(target_dname, "/") == 0)
+            target_p = hmap_get(target_map, target_bname, NONE);
+        else
+            target_p = hmap_get(target_map, target_bname, START_WRITE);
+
+        if (!source_p || !source_p->value || !target_p || target_p->value)
         {
-            source_p = hmap_get(source_map, source_first, NONE);
+            if (strcmp(source_dname, "/") != 0 && source_p)
+                rw_action_wrapper(source_p->bucket_guard, END_WRITE);
+
+            if (strcmp(target_dname, "/") != 0 && target_p)
+                rw_action_wrapper(target_p->bucket_guard, END_WRITE);
+
+            if (pg_source)
+                free(pg_source);
+            if (pg_target)
+                free(pg_target);
+            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
+            free(p);
+            free(source_first);
+            free(target_first);
+            free(source_bname);
+            free(target_bname);
+            if (pg_shared)
+                pg_free(pg_shared);
+            free(shared);
+            free(source_rest);
+            free(target_rest);
+
+            if (source_p && !source_p->value)
+                err = ENOENT;
+            if (target_p && target_p->value)
+                err = EEXIST;
+
+            free(source_p);
+            free(target_p);
+
+            return err;
         }
+
+        Pair *source_p_removed = hmap_remove(source_map, source_bname, true, false);
+        err = hmap_insert(target_map, target_bname, source_p_removed->value, true);
+
+        if (source_p_removed)
+        {
+            if (strcmp(source_dname, "/") != 0 && source_p)
+                rw_action_wrapper(source_p->bucket_guard, END_WRITE);
+            // if(strcmp(target_dname, "/") != 0 && target_p)
+            //     rw_action_wrapper(target_p->bucket_guard, END_WRITE);
+        }
+
+        if (pg_source)
+            free(pg_source);
+        if (pg_target)
+            free(pg_target);
+        if (strcmp(target_dname, "/") != 0 && target_p)
+            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
+        free(p);
+        free(source_first);
+        free(target_first);
+        free(source_bname);
+        free(target_bname);
+        if (pg_shared)
+            pg_free(pg_shared);
+        free(shared);
+        free(source_rest);
+        free(target_rest);
+        free(source_p_removed);
+        free(source_p);
+        free(target_p);
+
+        return err;
+    }
+    else
+    {
+        pg_source = pg_create(source_dname, source_map);
+        source_map = pg_get(pg_source, START_READ);
+
+        pg_target = pg_create(target_dname, target_map);
+        target_map = pg_get(pg_target, START_READ);
+
+        if (!source_map || !target_map)
+        {
+            if (pg_source)
+                free(pg_source);
+            if (pg_target)
+                free(pg_target);
+            free(source_first);
+            free(target_first);
+            free(source_bname);
+            free(target_bname);
+            if (pg_shared)
+                pg_free(pg_shared);
+            free(shared);
+            free(source_rest);
+            free(target_rest);
+            return ENOENT;
+        }
+
+        Pair *source_p;
+        Pair *target_p;
+
+        source_p = hmap_get(source_map, source_bname, START_WRITE);
+        target_p = hmap_get(target_map, target_bname, START_WRITE);
+
+        if (!source_p || !source_p->value || !target_p || target_p->value)
+        {
+            if (pg_source)
+                free(pg_source);
+            if (pg_target)
+                free(pg_target);
+            free(source_first);
+            free(target_first);
+            free(source_bname);
+            free(target_bname);
+            if (pg_shared)
+                pg_free(pg_shared);
+            free(shared);
+            free(source_rest);
+            free(target_rest);
+
+            if (source_p)
+                rw_action_wrapper(source_p->bucket_guard, END_WRITE);
+            if (target_p)
+                rw_action_wrapper(target_p->bucket_guard, END_WRITE);
+
+            if (source_p && !source_p->value)
+                err = ENOENT;
+            if (target_p && target_p->value)
+                err = EEXIST;
+
+            free(source_p);
+            free(target_p);
+
+            return err;
+        }
+
+        Pair *source_p_removed = hmap_remove(source_map, source_bname, true, false);
+        err = hmap_insert(target_map, target_bname, source_p_removed->value, true);
+
+        if (source_p_removed)
+        {
+            rw_action_wrapper(source_p->bucket_guard, END_WRITE);
+            // rw_action_wrapper(target_p->bucket_guard, END_WRITE);
+        }
+
+        if (pg_source)
+            free(pg_source);
+        if (pg_target)
+            free(pg_target);
+        free(source_first);
+        free(target_first);
+        free(source_bname);
+        free(target_bname);
+        if (pg_shared)
+            pg_free(pg_shared);
+        free(shared);
+        free(source_rest);
+        free(target_rest);
+        free(source_p_removed);
+        free(source_p);
+        free(target_p);
+
+        return err;
     }
 }
 

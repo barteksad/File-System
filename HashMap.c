@@ -212,13 +212,14 @@ bool hmap_next(HashMap *map, HashMapIterator *it, const char **key, void **value
 
 unsigned int get_hash(const char *key)
 {
-    unsigned int hash = 17;
-    while (*key)
-    {
-        hash = (hash << 3) + hash + *key;
-        ++key;
-    }
-    return hash % N_BUCKETS;
+    return 1;
+    // unsigned int hash = 17;
+    // while (*key)
+    // {
+    //     hash = (hash << 3) + hash + *key;
+    //     ++key;
+    // }
+    // return hash % N_BUCKETS;
 }
 
 char * map_list(HashMap *map)
