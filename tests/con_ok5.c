@@ -14,49 +14,49 @@ static int N_TIMES = 1000;
 
 static void* creator1(void *data)
 {
-    // Tree *t = (Tree *) data;
-    // for(int i = 0; i < N_TIMES; i++)
-    // {
-    //     char *l;
+    Tree *t = (Tree *) data;
+    char *l;
+    for(int i = 0; i < N_TIMES; i++)
+    {
 
-    //     tree_create(t, "/a/");
-    //     tree_create(t, "/a/b/");
-    //     tree_create(t, "/a/b/c/");
+        tree_create(t, "/a/");
+        tree_create(t, "/a/b/");
+        tree_create(t, "/a/b/c/");
 
-    //     l = tree_list(t, "/a/b/");
-    //     if(l)
-    //         free(l);
+        l = tree_list(t, "/a/b/");
+        if(l)
+            free(l);
 
-    // }
+    }
         return 0;
 }
 
 static void* mover1(void *data)
 {
-    // Tree *t = (Tree *) data;
-    // for(int i = 0; i < N_TIMES; i++)
-    // {
-    //     char *l;
+    Tree *t = (Tree *) data;
+    char *l;
+    for(int i = 0; i < N_TIMES; i++)
+    {
 
-    //     tree_move(t, "/a/b/c/", "/a/b/d/");
+        tree_move(t, "/a/b/c/", "/a/b/d/");
 
-    // }
+    }
         return 0;
 }
 
 static void* destructer1(void *data)
 {
-    // Tree *t = (Tree *) data;
-    // for(int i = 0; i < N_TIMES; i++)
-    // {
-    //     char *l;
+    Tree *t = (Tree *) data;
+    char *l;
+    for(int i = 0; i < N_TIMES; i++)
+    {
 
-    //     tree_remove(t, "/a/b/c/");
-    //     tree_remove(t, "/a/b/");
-    //     tree_remove(t, "/a/");
+        tree_remove(t, "/a/b/c/");
+        tree_remove(t, "/a/b/");
+        tree_remove(t, "/a/");
 
 
-    // }
+    }
     return 0;
 }
 
