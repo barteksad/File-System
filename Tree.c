@@ -77,8 +77,8 @@ static int pg_free(PathGetter *pg)
         if (err != 0)
             return err;
     }
-    if(pg->path)    
-        free(pg->path);
+    // if(pg->path)    
+    free(pg->path);
 
     free(pg);
     return 0;

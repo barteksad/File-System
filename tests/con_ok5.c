@@ -10,7 +10,7 @@
 #include "pthread.h"
 #include <assert.h>
 
-static int N_TIMES = 1000;
+static int N_TIMES = 10000;
 
 static void* creator1(void *data)
 {
@@ -77,7 +77,7 @@ static void* mixer1(void *data)
 
 int con_ok5(void)
 {
-    static int N_GROUPS = 10;
+    static int N_GROUPS = 4;
 
     Tree *t = tree_new();
     pthread_t threads[N_GROUPS * 4];
