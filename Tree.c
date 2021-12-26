@@ -104,12 +104,15 @@ static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
         {
             if (p)
             {
+                errno = ENOENT;
                 if (pg->guard_write_pos == 0 && first_acces != NONE)
                     rw_action_wrapper(p->bucket_guard, first_acces + 1);
                 else
                     rw_action_wrapper(p->bucket_guard, END_READ);
                 free(p);
             }
+            else
+                errno = -1;
             return NULL;
         }
         else
@@ -411,10 +414,16 @@ int tree_move(Tree *tree, const char *source, const char *target)
         }
 
         pg_source = pg_create(source_dname, source_map);
-        source_map = pg_get(pg_source, NONE);
+        if(pg_source)
+            source_map = pg_get(pg_source, NONE);
+        else
+            source_map = NULL;
 
         pg_target = pg_create(target_dname, target_map);
-        target_map = pg_get(pg_target, NONE);
+        if(pg_target)
+            target_map = pg_get(pg_target, NONE);
+        else
+            target_map = NULL;
 
         if (!source_map || !target_map)
         {
@@ -448,7 +457,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
         else
             target_p = hmap_get(target_map, target_bname, START_WRITE);
 
-        if (!source_p || !source_p->value || !target_p || target_p->value)
+        if (!source_p || !target_p || !source_p->value || target_p->value)
         {
             if (strcmp(source_dname, "/") != 0 && source_p)
                 rw_action_wrapper(source_p->bucket_guard, END_WRITE);
@@ -520,10 +529,16 @@ int tree_move(Tree *tree, const char *source, const char *target)
         free(target_rest);
 
         pg_source = pg_create(source_dname, source_map);
-        source_map = pg_get(pg_source, START_READ);
+        if(pg_source)
+            source_map = pg_get(pg_source, START_READ);
+        else
+            source_map = NULL;
 
         pg_target = pg_create(target_dname, target_map);
-        target_map = pg_get(pg_target, START_READ);
+        if(pg_target)
+            target_map = pg_get(pg_target, START_READ);
+        else
+            target_map = NULL;
 
         if (!source_map || !target_map)
         {
@@ -548,7 +563,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
         source_p = hmap_get(source_map, source_bname, START_WRITE);
         target_p = hmap_get(target_map, target_bname, START_WRITE);
 
-        if (!source_p || !source_p->value || !target_p || target_p->value)
+        if (!source_p || !target_p || !source_p->value|| target_p->value)
         {
             if (pg_source)
                 pg_free(pg_source);

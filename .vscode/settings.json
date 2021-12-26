@@ -11,6 +11,9 @@
         "string.h": "c",
         "tree.h": "c",
         "stdlib.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "printf.h": "c",
+        "features.h": "c",
+        "errno-base.h": "c"
     }
 }
