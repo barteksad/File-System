@@ -213,14 +213,13 @@ bool hmap_next(HashMap *map, HashMapIterator *it, const char **key, void **value
 
 unsigned int get_hash(const char *key)
 {
-    return 1;
-    // unsigned int hash = 17;
-    // while (*key)
-    // {
-    //     hash = (hash << 3) + hash + *key;
-    //     ++key;
-    // }
-    // return hash % N_BUCKETS;
+    unsigned int hash = 17;
+    while (*key)
+    {
+        hash = (hash << 3) + hash + *key;
+        ++key;
+    }
+    return hash % N_BUCKETS;
 }
 
 char * map_list(HashMap *map)
@@ -265,7 +264,10 @@ char * map_list(HashMap *map)
     for (int i = 0; i < N_BUCKETS; i++)
     {
         if ((err = rw_action_wrapper(map->buckets_guards[i], END_READ)) != 0)
+        {
+            free(list);
             return NULL;
+        }
     }
 
     return list;

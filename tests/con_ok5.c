@@ -10,7 +10,7 @@
 #include "pthread.h"
 #include <assert.h>
 
-static int N_TIMES = 10000;
+static int N_TIMES = 100;
 
 static void* creator1(void *data)
 {
@@ -77,7 +77,7 @@ static void* mixer1(void *data)
 
 int con_ok5(void)
 {
-    static int N_GROUPS = 4;
+    static int N_GROUPS = 10;
 
     Tree *t = tree_new();
     pthread_t threads[N_GROUPS * 4];
@@ -92,17 +92,17 @@ int con_ok5(void)
 
     for (size_t i = 0; i < N_GROUPS; i ++)
     {
-        if ((err = pthread_create(&threads[i*3], &attr, creator1, t)) != 0)
+        if ((err = pthread_create(&threads[i*4], &attr, creator1, t)) != 0)
             syserr(err, "create 1 failed");
-        if ((err = pthread_create(&threads[i*3 + 1], &attr, mover1, t)) != 0)
+        if ((err = pthread_create(&threads[i*4 + 1], &attr, mover1, t)) != 0)
             syserr(err, "create 1 failed");
-        if ((err = pthread_create(&threads[i*3 + 2], &attr, destructer1, t)) != 0)
+        if ((err = pthread_create(&threads[i*4 + 2], &attr, destructer1, t)) != 0)
             syserr(err, "create 1 failed");
-        if ((err = pthread_create(&threads[i*3 + 3], &attr, mixer1, t)) != 0)
+        if ((err = pthread_create(&threads[i*4 + 3], &attr, mixer1, t)) != 0)
             syserr(err, "create 1 failed");
     }
 
-    for (size_t i = 0; i < N_GROUPS*3; i ++)
+    for (size_t i = 0; i < N_GROUPS*4; i ++)
     {
         if ((err = pthread_join(threads[i], &retval)) != 0)
             syserr(err, "join 1 failed");

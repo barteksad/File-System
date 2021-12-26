@@ -18,6 +18,7 @@ int seq_ok3()
 
         Tree *t = tree_new();
         char *l = tree_list(t, "/");
+        free(l);
 
         tree_create(t, "/a/");
         tree_create(t, "/a/c/");

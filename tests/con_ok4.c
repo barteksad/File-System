@@ -106,6 +106,8 @@ static void* run4(void *data)
 
     tree_remove(t, "/a/b/c/d/e/f/x/y/y/");
 
+    tree_free(t);
+
     return 0;
 }
 
