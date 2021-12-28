@@ -14,8 +14,8 @@
 #include "HashMap.h"
 #include "path_utils.h"
 
-#define max(a,b) \
-   ({ __typeof__ (a) _a = (a); \
+#define max(a, b) \
+    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
 
@@ -36,7 +36,7 @@ typedef struct PathGetter
 
 static PathGetter *pg_create(const char *_path, HashMap *_map)
 {
-    PathGetter *pg = (PathGetter *) malloc(sizeof(PathGetter));
+    PathGetter *pg = (PathGetter *)malloc(sizeof(PathGetter));
 
     if (!pg)
         return NULL;
@@ -49,7 +49,7 @@ static PathGetter *pg_create(const char *_path, HashMap *_map)
     // printf("init: %s : %ld\n", _path, strlen(_path));
     // pg->path = (char *) malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
     pg->path = strdup(_path);
-    if(!pg->path)
+    if (!pg->path)
         syserr("dup");
     // strcpy(pg->path, _path);
 
@@ -66,7 +66,7 @@ void tree_free(Tree *tree)
 
 static int pg_free(PathGetter *pg)
 {
-    if(pg == NULL)
+    if (pg == NULL)
         syserr("dup");
 
     int err = 0;
@@ -75,7 +75,7 @@ static int pg_free(PathGetter *pg)
     {
         if (i == 0)
         {
-            if(pg->first_acces != NONE)
+            if (pg->first_acces != NONE)
                 err = rw_action_wrapper(pg->guards[i], pg->first_acces + 1);
         }
         else
@@ -83,7 +83,7 @@ static int pg_free(PathGetter *pg)
         if (err != 0)
             return err;
     }
-    // if(pg->path)    
+    // if(pg->path)
     free(pg->path);
 
     free(pg);
@@ -170,15 +170,15 @@ int tree_create(Tree *tree, const char *path)
     if (!swap_bd_name)
     {
         pg = pg_create(dname, map);
-        if(pg)
+        if (pg)
             map = pg_get(pg, START_READ);
         else
-            map= NULL;    
+            map = NULL;
     }
 
     if (!map)
     {
-        if(pg)
+        if (pg)
             pg_free(pg);
         free(dirc);
         free(basec);
@@ -203,6 +203,9 @@ int tree_remove(Tree *tree, const char *path)
 {
     if (!is_path_valid(path))
         return EINVAL;
+    
+    if(strcmp(path, "/") == 0)
+        return EBUSY;
 
     char *dirc, *basec, *bname, *dname;
 
@@ -224,7 +227,7 @@ int tree_remove(Tree *tree, const char *path)
     if (!swap_bd_name)
     {
         pg = pg_create(bname, map);
-        if(pg)
+        if (pg)
             map = pg_get(pg, START_READ);
         else
             map = NULL;
@@ -232,7 +235,7 @@ int tree_remove(Tree *tree, const char *path)
 
     if (!map)
     {
-        if(pg)
+        if (pg)
             pg_free(pg);
         free(dirc);
         free(basec);
@@ -272,21 +275,20 @@ char *tree_list(Tree *tree, const char *path)
     if (strcmp(path, "/") != 0)
     {
         pg = pg_create(path, map);
-        if(pg)
+        if (pg)
             map = pg_get(pg, START_READ);
         else
-            map = NULL;    
+            map = NULL;
     }
 
     if (!map)
     {
-        if(pg)
+        if (pg)
             pg_free(pg);
         return NULL;
     }
 
     char *list = map_list(map);
-    // char *list = make_map_contents_string(map);
 
     if (pg)
         pg_free(pg);
@@ -302,33 +304,27 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(source, "/") == 0)
         return EBUSY;
 
-    if (strstr(source, target) != NULL)
+    if (strstr(target, source) != NULL)
         return -2; // moving tree into subtree
 
     int err = 0;
 
     size_t source_len = strlen(source);
     size_t target_len = strlen(target);
-    char *shared= (char *)malloc(sizeof(char) * (max(source_len, target_len) + 1));
-    char *target_rest= (char *)malloc(sizeof(char) * (source_len + 1));
-    char *source_rest= (char *)malloc(sizeof(char) * (target_len + 1));
-
-    char *source_dirc, *source_first, *source_bname, *source_dname;
-    char *target_dirc, *target_first, *target_bname, *target_dname;
-
-    source_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    target_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    source_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    target_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-
-    
-    
-    if (!source_first || !target_first || !source_bname || !target_bname)
-        syserr("malloc failed!");
-    if(!shared || !source_rest || !target_rest)
+    char *shared = NULL, *target_rest = NULL, *source_rest = NULL;
+    shared = (char *)malloc(sizeof(char) * (max(source_len, target_len) + 1));
+    source_rest = (char *)malloc(sizeof(char) * (source_len + 1));
+    target_rest = (char *)malloc(sizeof(char) * (target_len + 1));
+    if (!shared || !source_rest || !target_rest)
+    {
+        if (shared)
+            free(shared);
+        if (target_rest)
+            free(target_rest);
+        if (source_rest)
+            free(source_rest);
         return -1;
-
-
+    }
 
     get_shared_path(source, target, shared, source_rest, target_rest);
 
@@ -338,7 +334,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(shared, "/") != 0)
     {
         pg_shared = pg_create(shared, shared_map);
-        if(pg_shared)
+        if (pg_shared)
             shared_map = pg_get(pg_shared, START_READ);
         else
             shared_map = NULL;
@@ -348,11 +344,36 @@ int tree_move(Tree *tree, const char *source, const char *target)
 
     if (!shared_map)
     {
-        if(pg_shared)
+        if (pg_shared)
             pg_free(pg_shared);
         free(source_rest);
         free(target_rest);
         return ENOENT;
+    }
+
+    char *source_dirc = NULL, *source_first = NULL, *source_bname = NULL, *source_dname = NULL;
+    char *target_dirc = NULL, *target_first = NULL, *target_bname = NULL, *target_dname = NULL;
+
+    source_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    target_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    source_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    target_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    if (!source_first || !target_first || !source_bname || !target_bname)
+    {
+        free(shared);
+        free(target_rest);
+        free(source_rest);
+
+        if (source_first)
+            free(source_first);
+        if (target_first)
+            free(target_first);
+        if (source_bname)
+            free(source_bname);
+        if (target_bname)
+            free(target_bname);
+
+        return -1;
     }
 
     source_dirc = split_path(source_rest, source_first);
@@ -363,15 +384,8 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(target_rest, "") == 0)
         strcpy(target_first, target_rest);
 
-    // if (strcmp(source_dirc, "/") == 0)
-        source_dname = make_path_to_parent(source_rest, source_bname);
-    // else
-    //     source_dname = make_path_to_parent(source_dirc, source_bname);
-
-    // if (strcmp(target_dirc, "/") == 0)
-        target_dname = make_path_to_parent(target_rest, target_bname);
-    // else
-    //     target_dname = make_path_to_parent(target_dirc, target_bname);
+    source_dname = make_path_to_parent(source_rest, source_bname);
+    target_dname = make_path_to_parent(target_rest, target_bname);
 
     if (source_dirc == NULL)
         source_dirc = source_rest;
@@ -410,44 +424,46 @@ int tree_move(Tree *tree, const char *source, const char *target)
 
         p = hmap_get(source_map, source_first, shared_atype);
 
-        if (!p)
+        if (!p || !p->value)
         {
-            if(pg_shared)
+            if (pg_shared)
                 pg_free(pg_shared);
-            return -1;
-        }
-        if (!p->value)
-        {
-            if(pg_shared)
-                pg_free(pg_shared);
-            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
-            free(p);
+
+            if (p)
+            {
+                rw_action_wrapper(p->bucket_guard, shared_atype + 1);
+                free(p);
+            }
             free(source_bname);
             free(target_bname);
             free(source_first);
             free(target_first);
             free(source_dname);
             free(target_dname);
-            return ENOENT;
+
+            if (p)
+                return ENOENT;
+            else
+                return -1;
         }
 
         pg_source = pg_create(source_dname, source_map);
-        if(pg_source)
+        if (pg_source)
             source_map = pg_get(pg_source, NONE);
         else
             source_map = NULL;
 
         pg_target = pg_create(target_dname, target_map);
-        if(pg_target)
+        if (pg_target)
             target_map = pg_get(pg_target, NONE);
         else
             target_map = NULL;
 
         if (!source_map || !target_map)
         {
-            if(pg_source)
+            if (pg_source)
                 pg_free(pg_source);
-            if(pg_target)
+            if (pg_target)
                 pg_free(pg_target);
             rw_action_wrapper(p->bucket_guard, shared_atype + 1);
             if (pg_shared)
@@ -547,13 +563,13 @@ int tree_move(Tree *tree, const char *source, const char *target)
         free(target_rest);
 
         pg_source = pg_create(source_dname, source_map);
-        if(pg_source)
+        if (pg_source)
             source_map = pg_get(pg_source, START_READ);
         else
             source_map = NULL;
 
         pg_target = pg_create(target_dname, target_map);
-        if(pg_target)
+        if (pg_target)
             target_map = pg_get(pg_target, START_READ);
         else
             target_map = NULL;
@@ -581,7 +597,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
         source_p = hmap_get(source_map, source_bname, START_WRITE);
         target_p = hmap_get(target_map, target_bname, START_WRITE);
 
-        if (!source_p || !target_p || !source_p->value|| target_p->value)
+        if (!source_p || !target_p || !source_p->value || target_p->value)
         {
             if (pg_source)
                 pg_free(pg_source);
