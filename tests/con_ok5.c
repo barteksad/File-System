@@ -12,7 +12,7 @@
 
 static int N_TIMES = 100;
 
-static void* creator1(void *data)
+void* creator1(void *data)
 {
     Tree *t = (Tree *) data;
     char *l;
@@ -31,7 +31,7 @@ static void* creator1(void *data)
         return 0;
 }
 
-static void* mover1(void *data)
+void* mover1(void *data)
 {
     Tree *t = (Tree *) data;
     char *l;
@@ -44,7 +44,7 @@ static void* mover1(void *data)
         return 0;
 }
 
-static void* destructer1(void *data)
+void* destructer1(void *data)
 {
     Tree *t = (Tree *) data;
     char *l;
@@ -60,7 +60,7 @@ static void* destructer1(void *data)
     return 0;
 }
 
-static void* mixer1(void *data)
+void* mixer1(void *data)
 {
     Tree *t = (Tree *) data;
     char *l;
@@ -68,7 +68,11 @@ static void* mixer1(void *data)
     {
 
         tree_create(t, "/x/");
+        tree_create(t, "/k/");
+        tree_create(t, "/k/l/");
+        tree_create(t, "/k/l/m/");
         tree_move(t, "/x/", "/y/");
+        tree_move(t, "/k/l/m/", "/y/c/");
         tree_remove(t, "/y/");
 
     }

@@ -281,65 +281,25 @@ int rw_action_wrapper(ReadWrite *rw, AccessType a_type)
     return EINVAL;
 }
 
-// bool is_path_valid(const char * path)
-// {
-//     bool first_slash = true;
-//     int since_slash = -1;
-
-//     for(size_t i = 0; i <= MAX_PATH_LEN; i++)
-//     {
-//         if (path[i] == '\0')
-//         {
-//             if(since_slash != 0)
-//                 return false;
-//             else
-//                 return true;
-//         }
-
-//         if(first_slash)
-//         {
-//             if(path[i] != '/')
-//                 return false;
-            
-//             first_slash = false;
-//             since_slash = 0;
-
-//             continue;
-//         }
-
-//         if (path[i] == '/') 
-//         {
-//             if(since_slash == 0)
-//                 return false;
-//             else
-//                 since_slash = 0;
-//         }
-//         else if (path[i] < 'a' || path[i] > 'z')
-//             return false;
-//         else
-//             since_slash++;
-//     }
-
-//     return false;
-// }
-
-int get_shared_path(const char *source, const char *target, char **shared, char** source_rest, char **target_rest)
+int get_shared_path(const char *source, const char *target, char *shared, char* source_rest, char *target_rest)
 {
     size_t source_len = strlen(source);
     size_t target_len = strlen(target);
     
     size_t i = 0;
     size_t last_slash = 0;
-    while(source[i] == target[i] && i < source_len && i < target_len)
+    while(i < source_len && i < target_len && source[i] == target[i])
     {
         if(source[i] == '/')
             last_slash = i;
         i++;
     }
 
-    *shared = strndup(source, last_slash + 1);
-    *source_rest = strdup(source + last_slash);
-    *target_rest = strdup(target + last_slash);
+    strncpy(shared, source, last_slash + 1);
+    shared[last_slash+1] ='\0';
+    strcpy(source_rest, source + last_slash);
+    strcpy(target_rest, target + last_slash);
 
+    // printf("%s, %s, %ld, %s, %s, %s\n", source, target,  last_slash, shared, source_rest, target_rest);
     return 0;
 }

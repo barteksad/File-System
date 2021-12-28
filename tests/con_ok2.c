@@ -68,7 +68,7 @@ static void* run2(void *data)
 
 int con_ok2(void)
 {
-    static int N_THREADS = 100;
+    static int N_THREADS = 50;
 
     Tree *t = tree_new();
     pthread_t threads[N_THREADS];

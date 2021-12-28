@@ -31,22 +31,22 @@ typedef struct PathGetter
 
 static PathGetter *pg_create(const char *_path, HashMap *_map)
 {
-    PathGetter *pg = malloc(sizeof(PathGetter));
+    PathGetter *pg = (PathGetter *) malloc(sizeof(PathGetter));
 
     if (!pg)
         return NULL;
 
     pg->map = _map;
     // pg->guards = malloc(2047 * sizeof (ReadWrite*));
-    if(!pg->guards)
-        syserr("dup");
+    // if(!pg->guards)
+    //     syserr("dup");
 
     // printf("init: %s : %ld\n", _path, strlen(_path));
-    pg->path = (char *) malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
+    // pg->path = (char *) malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
+    pg->path = strdup(_path);
     if(!pg->path)
         syserr("dup");
 
-    strcpy(pg->path, _path);
     pg->guard_write_pos = 0;
 
     return pg;
@@ -301,8 +301,14 @@ int tree_move(Tree *tree, const char *source, const char *target)
 
     int err = 0;
 
-    char *shared, *source_rest, *target_rest;
-    err = get_shared_path(source, target, &shared, &source_rest, &target_rest);
+    char *shared= (char *)malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
+    char *source_rest= (char *)malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
+    char *target_rest= (char *)malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));;
+    if(!shared || !source_rest || !target_rest)
+        return -1;
+    err = get_shared_path(source, target, shared, source_rest, target_rest);
+    if(err !=0 || !shared || !source_rest || !target_rest)
+        return -1;
 
     HashMap *shared_map = tree->tree_map;
     PathGetter *pg_shared = NULL;

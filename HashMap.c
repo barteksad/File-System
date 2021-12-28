@@ -28,6 +28,8 @@ struct HashMap
 
 HashMap *hmap_new()
 {
+    int err = 0;
+
     HashMap *map = malloc(sizeof(HashMap));
     if (!map)
         return NULL;
@@ -37,14 +39,15 @@ HashMap *hmap_new()
     for (size_t h = 0; h < N_BUCKETS; h++)
     {
         map->buckets_guards[h] = malloc(sizeof(ReadWrite));
-        if (!map->buckets_guards[h])
+        if (!map->buckets_guards[h] || err != 0)
         {
             hmap_free(map);
             return NULL;
         }
-        rw_init(map->buckets_guards[h]);
+        err = rw_init(map->buckets_guards[h]);
     }
 
+    errno = err;
     return map;
 }
 
@@ -97,8 +100,14 @@ Pair *hmap_get(HashMap *map, const char *key, AccessType a_type)
     if (rw_action_wrapper(map->buckets_guards[h], a_type) != 0)
         return NULL;
 
-    MapPair *mp = hmap_find(map, h, key);
     Pair *p = malloc(sizeof(Pair));
+    if(!p)
+    {
+        if(a_type != NONE)
+            rw_action_wrapper(map->buckets_guards[h], a_type + 1);
+        return NULL;
+    }
+    MapPair *mp = hmap_find(map, h, key);
     if (mp)
         p->value = mp->value;
     else
@@ -111,6 +120,8 @@ Pair *hmap_get(HashMap *map, const char *key, AccessType a_type)
 
 int hmap_insert(HashMap *map, const char *key, void *value, bool has_access)
 {
+    int err = 0;
+
     if (!value)
         return false;
     int h = get_hash(key);
@@ -127,14 +138,22 @@ int hmap_insert(HashMap *map, const char *key, void *value, bool has_access)
         return EEXIST;
     }
     MapPair *new_p = malloc(sizeof(MapPair));
-    new_p->key = strdup(key);
-    new_p->value = value;
-    new_p->next = map->buckets[h];
-    map->buckets[h] = new_p;
-    map->size++;
+    if(!new_p)
+        err = -1;
+    if(err==0)
+        new_p->key = strdup(key);
+    if(!new_p->key)
+        err = -1;
+    if(err==0)
+    {
+        new_p->value = value;
+        new_p->next = map->buckets[h];
+        map->buckets[h] = new_p;
+        map->size++;
+    }
     if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
         return errno;
-    return 0;
+    return err;
 }
 
 Pair *hmap_remove(HashMap *map, const char *key, bool has_access, bool must_be_empty)
@@ -237,29 +256,6 @@ char * map_list(HashMap *map)
     }
 
     char* list = make_map_contents_string(map);
-
-    // size_t list_size = 128;
-    // const char *key = NULL;
-    // void *value;
-    // char *list = (char *)malloc(sizeof(char) * list_size);
-    // list[0] = '\0';
-    // bool first = true;
-
-    // HashMapIterator it = hmap_iterator(map);
-    // while (hmap_next(map, &it, &key, &value))
-    // {
-    //     if(strlen(list) + strlen(key) + 3 >= list_size)
-    //     {
-    //         list = realloc(list, sizeof(char) * list_size * 2);
-    //         list_size*= 2;
-    //     }
-
-    //     if (!first)
-    //         strcat(list, ",");
-    //     else
-    //         first = false;
-    //     strcat(list, key);
-    // }
 
     for (int i = 0; i < N_BUCKETS; i++)
     {

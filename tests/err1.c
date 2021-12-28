@@ -30,10 +30,10 @@ static void* err_run1(void *data)
     free(l);
 
     char *e = strerror(r1);
-    printf("R1 : %s, %ld\n", e, r1);
+    // printf("R1 : %s, %ld\n", e, r1);
     // free(e);
     e = strerror(r2);
-    printf("R2 : %s, %ld\n", e, r2);
+    // printf("R2 : %s, %ld\n", e, r2);
 
     return 0;
 }
@@ -51,7 +51,7 @@ static void* err_run2(void *data)
     // printf("after r3 : %s\n", l);
     free(l);
     char *e = strerror(r3);
-    printf("R3 : %s, %ld\n", e, r3);
+    // printf("R3 : %s, %ld\n", e, r3);
     // free(e);
     
     return 0;

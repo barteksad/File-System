@@ -51,7 +51,7 @@ static void* run1(void *data)
 
 int con_ok1(void)
 {
-    static int N_THREADS = 100;
+    static int N_THREADS = 50;
 
     Pair *p;
     HashMap *map = hmap_new();
