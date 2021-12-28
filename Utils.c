@@ -281,7 +281,7 @@ int rw_action_wrapper(ReadWrite *rw, AccessType a_type)
     return EINVAL;
 }
 
-int get_shared_path(const char *source, const char *target, char *shared, char* source_rest, char *target_rest)
+void get_shared_path(const char *source, const char *target, char *shared, char* source_rest, char *target_rest)
 {
     size_t source_len = strlen(source);
     size_t target_len = strlen(target);
@@ -301,5 +301,4 @@ int get_shared_path(const char *source, const char *target, char *shared, char* 
     strcpy(target_rest, target + last_slash);
 
     // printf("%s, %s, %ld, %s, %s, %s\n", source, target,  last_slash, shared, source_rest, target_rest);
-    return 0;
 }

@@ -14,6 +14,11 @@
 #include "HashMap.h"
 #include "path_utils.h"
 
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
 struct Tree
 {
     HashMap *tree_map;
@@ -46,6 +51,7 @@ static PathGetter *pg_create(const char *_path, HashMap *_map)
     pg->path = strdup(_path);
     if(!pg->path)
         syserr("dup");
+    // strcpy(pg->path, _path);
 
     pg->guard_write_pos = 0;
 
@@ -297,18 +303,34 @@ int tree_move(Tree *tree, const char *source, const char *target)
         return EBUSY;
 
     if (strstr(source, target) != NULL)
-        return -2; // przenoszenie drzewa do poddrzewa
+        return -2; // moving tree into subtree
 
     int err = 0;
 
-    char *shared= (char *)malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
-    char *source_rest= (char *)malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
-    char *target_rest= (char *)malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));;
+    size_t source_len = strlen(source);
+    size_t target_len = strlen(target);
+    char *shared= (char *)malloc(sizeof(char) * (max(source_len, target_len) + 1));
+    char *target_rest= (char *)malloc(sizeof(char) * (source_len + 1));
+    char *source_rest= (char *)malloc(sizeof(char) * (target_len + 1));
+
+    char *source_dirc, *source_first, *source_bname, *source_dname;
+    char *target_dirc, *target_first, *target_bname, *target_dname;
+
+    source_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    target_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    source_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+    target_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
+
+    
+    
+    if (!source_first || !target_first || !source_bname || !target_bname)
+        syserr("malloc failed!");
     if(!shared || !source_rest || !target_rest)
         return -1;
-    err = get_shared_path(source, target, shared, source_rest, target_rest);
-    if(err !=0 || !shared || !source_rest || !target_rest)
-        return -1;
+
+
+
+    get_shared_path(source, target, shared, source_rest, target_rest);
 
     HashMap *shared_map = tree->tree_map;
     PathGetter *pg_shared = NULL;
@@ -332,16 +354,6 @@ int tree_move(Tree *tree, const char *source, const char *target)
         free(target_rest);
         return ENOENT;
     }
-
-    char *source_dirc, *source_first, *source_bname, *source_dname;
-    char *target_dirc, *target_first, *target_bname, *target_dname;
-
-    source_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    target_first = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    source_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    target_bname = (char *)malloc(sizeof(char) * (MAX_FOLDER_NAME_LENGTH + 1));
-    if (!source_first || !target_first || !source_bname || !target_bname)
-        syserr("malloc failed!");
 
     source_dirc = split_path(source_rest, source_first);
     target_dirc = split_path(target_rest, target_first);
