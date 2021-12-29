@@ -200,7 +200,7 @@ Pair *hmap_remove(HashMap *map, const char *key, bool has_access, bool must_be_e
     if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
         return NULL;
 
-    errno = EEXIST;
+    errno = ENOENT;
     return NULL;
 }
 

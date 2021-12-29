@@ -150,6 +150,9 @@ int tree_create(Tree *tree, const char *path)
     if (!is_path_valid(path))
         return EINVAL;
 
+    if (strcmp(path, "/") == 0)
+        return EEXIST;
+
     char *dirc, *basec, *bname, *dname;
 
     dirc = strdup(path);
@@ -226,7 +229,7 @@ int tree_remove(Tree *tree, const char *path)
 
     if (!swap_bd_name)
     {
-        pg = pg_create(bname, map);
+        pg = pg_create(dname, map);
         if (pg)
             map = pg_get(pg, START_READ);
         else
@@ -304,7 +307,10 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(source, "/") == 0)
         return EBUSY;
 
-    if (strstr(target, source) != NULL)
+    if (strcmp(target, "/") == 0)
+        return EEXIST;
+
+    if (strstr(target, source) != NULL || strstr(source, target) != NULL)
         return -2; // moving tree into subtree
 
     int err = 0;
