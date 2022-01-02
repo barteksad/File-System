@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 bool is_path_valid(const char* path)
 {
@@ -50,7 +51,13 @@ char* make_path_to_parent(const char* path, char* component)
         p--;
 
     size_t subpath_len = p - path + 1; // Include '/' at p.
-    char* result = malloc(subpath_len + 1); // Include terminating null character.
+    char* result = NULL;
+    result = malloc(subpath_len + 1); // Include terminating null character.
+    if(!result)
+    {
+        errno = -1;
+        return NULL;
+    }
     strncpy(result, path, subpath_len);
     result[subpath_len] = '\0';
 
@@ -74,7 +81,10 @@ static int compare_string_pointers(const void* p1, const void* p2)
 const char** make_map_contents_array(HashMap* map)
 {
     size_t n_keys = hmap_size(map);
-    const char** result = calloc(n_keys + 1, sizeof(char*));
+    const char** result = NULL;
+    result = calloc(n_keys + 1, sizeof(char*));\
+    if(!result)
+        return NULL;
     HashMapIterator it = hmap_iterator(map);
     const char** key = result;
     void* value = NULL;
@@ -88,7 +98,13 @@ const char** make_map_contents_array(HashMap* map)
 
 char* make_map_contents_string(HashMap* map)
 {
-    const char** keys = make_map_contents_array(map);
+    const char** keys = NULL;
+    keys = make_map_contents_array(map);
+    if(!keys)
+    {
+        errno = -1;
+        return NULL;
+    }
 
     unsigned int result_size = 0; // Including ending null character.
     for (const char** key = keys; *key; ++key)
@@ -97,14 +113,30 @@ char* make_map_contents_string(HashMap* map)
     // Return empty string if map is empty.
     if (!result_size) {
         if(keys)
+        {
+            errno = -1;
             free(keys);
+        }
         // Note we can't just return "", as it can't be free'd.
-        char* result = malloc(1);
+        char* result = NULL;
+        result = malloc(1);
+        if(!result)
+        {
+            errno = -1;
+            return NULL;
+        }
         *result = '\0';
         return result;
     }
 
-    char* result = malloc(result_size);
+    char* result = NULL;
+    result = malloc(result_size);
+    if(!result)
+    {
+        errno = -1;
+        free(keys);
+        return NULL;
+    }
     char* position = result;
     for (const char** key = keys; *key; ++key) {
         size_t keylen = strlen(*key);

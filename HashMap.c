@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdatomic.h>
 
+#include "err.h"
 #include "HashMap.h"
 #include "path_utils.h"
 
@@ -30,7 +31,8 @@ HashMap *hmap_new()
 {
     int err = 0;
 
-    HashMap *map = malloc(sizeof(HashMap));
+    HashMap *map = NULL;
+    map = malloc(sizeof(HashMap));
     if (!map)
         return NULL;
 
@@ -38,6 +40,7 @@ HashMap *hmap_new()
 
     for (size_t h = 0; h < N_BUCKETS; h++)
     {
+        map->buckets_guards[h] = NULL;
         map->buckets_guards[h] = malloc(sizeof(ReadWrite));
         if (!map->buckets_guards[h] || err != 0)
         {
@@ -65,6 +68,8 @@ int hmap_free(HashMap *map)
             MapPair *q = mp;
             mp = mp->next;
             err = hmap_free(q->value);
+            if(err)
+                break;
             free(q->key);
             free(q);
         }
@@ -73,8 +78,13 @@ int hmap_free(HashMap *map)
     for (size_t h = 0; h < N_BUCKETS; h++)
     {
         err = rw_destroy(map->buckets_guards[h]);
+        if(err)
+            break;
         free(map->buckets_guards[h]);
     }
+
+    if(err)
+        syserr("Error in hmap_free!");
 
     free(map);
 
@@ -100,7 +110,8 @@ Pair *hmap_get(HashMap *map, const char *key, AccessType a_type)
     if (rw_action_wrapper(map->buckets_guards[h], a_type) != 0)
         return NULL;
 
-    Pair *p = malloc(sizeof(Pair));
+    Pair *p = NULL;
+    p = malloc(sizeof(Pair));
     if(!p)
     {
         if(a_type != NONE)
@@ -137,7 +148,8 @@ int hmap_insert(HashMap *map, const char *key, void *value, bool has_access)
             return errno;
         return EEXIST;
     }
-    MapPair *new_p = malloc(sizeof(MapPair));
+    MapPair *new_p = NULL;
+    new_p = malloc(sizeof(MapPair));
     if(!new_p)
         err = -1;
     if(err==0)
@@ -179,7 +191,8 @@ Pair *hmap_remove(HashMap *map, const char *key, bool has_access, bool must_be_e
 
             *mpp = mp->next;
 
-            Pair *p = malloc(sizeof(Pair));
+            Pair *p = NULL;
+            p = malloc(sizeof(Pair));
             if (!p)
             {
                 rw_action_wrapper(map->buckets_guards[h], END_WRITE);

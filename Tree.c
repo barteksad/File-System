@@ -36,22 +36,17 @@ typedef struct PathGetter
 
 static PathGetter *pg_create(const char *_path, HashMap *_map)
 {
-    PathGetter *pg = (PathGetter *)malloc(sizeof(PathGetter));
+    PathGetter *pg=NULL;
+    pg = (PathGetter *)malloc(sizeof(PathGetter));
 
     if (!pg)
         return NULL;
 
     pg->map = _map;
-    // pg->guards = malloc(2047 * sizeof (ReadWrite*));
-    // if(!pg->guards)
-    //     syserr("dup");
-
-    // printf("init: %s : %ld\n", _path, strlen(_path));
-    // pg->path = (char *) malloc(sizeof(char) * (MAX_PATH_LENGTH + 1));
+    pg->path = NULL;
     pg->path = strdup(_path);
     if (!pg->path)
         syserr("dup");
-    // strcpy(pg->path, _path);
 
     pg->guard_write_pos = 0;
 
@@ -98,7 +93,7 @@ static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
     char *path = strtok(pg->path, delim);
 
     HashMap *tmp = pg->map;
-    Pair *p;
+    Pair *p=NULL;
 
     while (path != NULL)
     {
@@ -136,11 +131,17 @@ static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
 
 Tree *tree_new()
 {
-    Tree *t = malloc(sizeof(Tree));
+    Tree *t = NULL;
+    t = (Tree *) malloc(sizeof(Tree));
     if (!t)
         return NULL;
 
     t->tree_map = hmap_new();
+    if(!t->tree_map)
+    {
+        free(t);
+        syserr("Failed to create new tree!");
+    }
 
     return t;
 }
@@ -310,7 +311,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(target, "/") == 0)
         return EEXIST;
 
-    if (strstr(target, source) != NULL || strstr(source, target) != NULL)
+    if (strstr(target, source) == target || strstr(source, target) == source)
         return -2; // moving tree into subtree
 
     int err = 0;
@@ -625,7 +626,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
 
             if (source_p && !source_p->value)
                 err = ENOENT;
-            if (target_p && target_p->value)
+            else if (target_p && target_p->value)
                 err = EEXIST;
 
             free(source_p);
