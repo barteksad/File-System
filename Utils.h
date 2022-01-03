@@ -40,8 +40,7 @@ int rw_remove(ReadWrite *rw);
 
 int rw_action_wrapper(ReadWrite *rw, AccessType a_type);
 
-// bool is_path_valid(const char * path);
-
 void get_shared_path(const char *source, const char *target, char *shared, char* source_rest, char *target_rest);
+
 
 #endif // define utils

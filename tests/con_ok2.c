@@ -13,9 +13,17 @@
 
 static void* run2(void *data)
 {
+
+    for(int i = 0; i < 1000; i++)
+    {
+
     Tree *t = (Tree *) data;
 
     tree_create(t, "/a/");
+    tree_create(t, "/a/b/");
+    tree_create(t, "/a/b/c/");
+    tree_remove(t, "/a/b/c/");
+    tree_remove(t, "/a/b/");
     tree_remove(t, "/a/");
     tree_create(t, "/a/");
 
@@ -64,11 +72,12 @@ static void* run2(void *data)
     tree_create(t, "/l/");
 
     return 0;
+    }
 }
 
 int con_ok2(void)
 {
-    static int N_THREADS = 50;
+    static int N_THREADS = 8;
 
     Tree *t = tree_new();
     pthread_t threads[N_THREADS];
@@ -96,20 +105,6 @@ int con_ok2(void)
 
     printf("\n\n\n");
     // print_map(get_tree_map(t), 0);
-
-    char *tmp[12];
-    tmp[0] =  "/a/";
-    tmp[1] =  "/b/";
-    tmp[2] =  "/c/";
-    tmp[3] =  "/d/";
-    tmp[4] =  "/e/";
-    tmp[5] =  "/f/";
-    tmp[6] =  "/g/";
-    tmp[7] =  "/h/";
-    tmp[8] =  "/i/";
-    tmp[9] =  "/j/";
-    tmp[10] = "/k/";
-    tmp[11] = "/l/";
 
     tree_free(t);
 

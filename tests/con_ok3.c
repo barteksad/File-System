@@ -20,7 +20,7 @@ static void* run3(void *data)
     unsigned int *mystate = malloc(sizeof(unsigned int));
     *mystate = time(NULL) ^ getpid() ^ pthread_self();
 
-    FILE *in_file  = fopen("/home/students/inf/b/bs429589/PW/File-System/tests/random_paths.txt", "r");
+    FILE *in_file  = fopen("/mnt/c/Users/barte/OneDrive/Desktop/uw/PW/File System/tests/random_paths.txt", "r");
     char *path = malloc(sizeof(char) * 4096);
 
     int i = 1;
@@ -34,7 +34,7 @@ static void* run3(void *data)
         }
         else
         {
-            tree_move(t, path, path);
+            // tree_move(t, path, path);
             // printf("\n\n\n");
             char *l = tree_list(t, "/");
             // printf("%s\n", l);

@@ -1,283 +1,134 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <stdatomic.h>
 
-#include "err.h"
 #include "HashMap.h"
-#include "path_utils.h"
 
 // We fix the number of hash buckets for simplicity.
 #define N_BUCKETS 8
 
-typedef struct MapPair MapPair;
+typedef struct Pair Pair;
 
-struct MapPair
-{
-    char *key;
-    HashMap *value;
-    MapPair *next; // Next item in a single-linked list.
+struct Pair {
+    char* key;
+    void* value;
+    Pair* next; // Next item in a single-linked list.
 };
 
-struct HashMap
-{
-    MapPair *buckets[N_BUCKETS]; // Linked lists of key-value pairs.
-    ReadWrite *buckets_guards[N_BUCKETS];
-    atomic_size_t size; // total number of entries in map.
+struct HashMap {
+    Pair* buckets[N_BUCKETS]; // Linked lists of key-value pairs.
+    size_t size; // total number of entries in map.
 };
 
-HashMap *hmap_new()
-{
-    int err = 0;
+static unsigned int get_hash(const char* key);
 
-    HashMap *map = NULL;
-    map = malloc(sizeof(HashMap));
+HashMap* hmap_new()
+{
+    HashMap* map = malloc(sizeof(HashMap));
     if (!map)
         return NULL;
-
     memset(map, 0, sizeof(HashMap));
-
-    for (size_t h = 0; h < N_BUCKETS; h++)
-    {
-        map->buckets_guards[h] = NULL;
-        map->buckets_guards[h] = malloc(sizeof(ReadWrite));
-        if (!map->buckets_guards[h] || err != 0)
-        {
-            hmap_free(map);
-            return NULL;
-        }
-        err = rw_init(map->buckets_guards[h]);
-    }
-
-    errno = err;
     return map;
 }
 
-int hmap_free(HashMap *map)
+void hmap_free(HashMap* map)
 {
-    if (map == NULL)
-        return 0;
-
-    int err = 0;
-
-    for (int h = 0; h < N_BUCKETS; ++h)
-    {
-        for (MapPair *mp = map->buckets[h]; mp;)
-        {
-            MapPair *q = mp;
-            mp = mp->next;
-            err = hmap_free(q->value);
-            if(err)
-                break;
+    for (int h = 0; h < N_BUCKETS; ++h) {
+        for (Pair* p = map->buckets[h]; p;) {
+            Pair* q = p;
+            p = p->next;
             free(q->key);
             free(q);
         }
     }
-
-    for (size_t h = 0; h < N_BUCKETS; h++)
-    {
-        err = rw_destroy(map->buckets_guards[h]);
-        if(err)
-            break;
-        free(map->buckets_guards[h]);
-    }
-
-    if(err)
-        syserr("Error in hmap_free!");
-
     free(map);
-
-    return err;
 }
 
-static MapPair *hmap_find(HashMap *map, int h, const char *key)
+static Pair* hmap_find(HashMap* map, int h, const char* key)
 {
-    for (MapPair *mp = map->buckets[h]; mp; mp = mp->next)
-    {
-        if (strcmp(key, mp->key) == 0)
-            return mp;
+    for (Pair* p = map->buckets[h]; p; p = p->next) {
+        if (strcmp(key, p->key) == 0)
+            return p;
     }
-
-    errno = EEXIST;
     return NULL;
 }
 
-Pair *hmap_get(HashMap *map, const char *key, AccessType a_type)
+void* hmap_get(HashMap* map, const char* key)
 {
     int h = get_hash(key);
-
-    if (rw_action_wrapper(map->buckets_guards[h], a_type) != 0)
-        return NULL;
-
-    Pair *p = NULL;
-    p = malloc(sizeof(Pair));
-    if(!p)
-    {
-        if(a_type != NONE)
-            rw_action_wrapper(map->buckets_guards[h], a_type + 1);
-        return NULL;
-    }
-    MapPair *mp = hmap_find(map, h, key);
-    if (mp)
-        p->value = mp->value;
+    Pair* p = hmap_find(map, h, key);
+    if (p)
+        return p->value;
     else
-        p->value = NULL;
-    p->bucket_guard = map->buckets_guards[h];
-
-    return p;
+        return NULL;
 }
 
-
-int hmap_insert(HashMap *map, const char *key, void *value, bool has_access)
+bool hmap_insert(HashMap* map, const char* key, void* value)
 {
-    int err = 0;
-
     if (!value)
         return false;
     int h = get_hash(key);
-    if (!has_access)
-    {
-        if (rw_action_wrapper(map->buckets_guards[h], START_WRITE) != 0)
-            return errno;
-    }
-    MapPair *mp = hmap_find(map, h, key);
-    if (mp)
-    {
-        if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
-            return errno;
-        return EEXIST;
-    }
-    MapPair *new_p = NULL;
-    new_p = malloc(sizeof(MapPair));
-    if(!new_p)
-        err = -1;
-    if(err==0)
-        new_p->key = strdup(key);
-    if(!new_p->key)
-        err = -1;
-    if(err==0)
-    {
-        new_p->value = value;
-        new_p->next = map->buckets[h];
-        map->buckets[h] = new_p;
-        map->size++;
-    }
-    if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
-        return errno;
-    return err;
+    Pair* p = hmap_find(map, h, key);
+    if (p)
+        return false; // Already exists.
+    Pair* new_p = malloc(sizeof(Pair));
+    new_p->key = strdup(key);
+    new_p->value = value;
+    new_p->next = map->buckets[h];
+    map->buckets[h] = new_p;
+    map->size++;
+    return true;
 }
 
-Pair *hmap_remove(HashMap *map, const char *key, bool has_access, bool must_be_empty)
+bool hmap_remove(HashMap* map, const char* key)
 {
     int h = get_hash(key);
-    if(!has_access)
-    {
-        if (rw_action_wrapper(map->buckets_guards[h], START_WRITE) != 0)
-            return NULL;
-    }
-    MapPair **mpp = &(map->buckets[h]);
-    while (*mpp)
-    {
-        MapPair *mp = *mpp;
-        if (strcmp(key, mp->key) == 0)
-        {
-            if (must_be_empty && hmap_size(mp->value) > 0)
-            {
-                errno = ENOTEMPTY;
-                rw_action_wrapper(map->buckets_guards[h], END_WRITE);
-                return NULL;
-            }
-
-            *mpp = mp->next;
-
-            Pair *p = NULL;
-            p = malloc(sizeof(Pair));
-            if (!p)
-            {
-                rw_action_wrapper(map->buckets_guards[h], END_WRITE);
-                return NULL;
-            }
-
-            p->value = mp->value;
-            p->bucket_guard = map->buckets_guards[h];
-            free(mp->key);
-            free(mp);
+    Pair** pp = &(map->buckets[h]);
+    while (*pp) {
+        Pair* p = *pp;
+        if (strcmp(key, p->key) == 0) {
+            *pp = p->next;
+            free(p->key);
+            free(p);
             map->size--;
-
-            return p;
+            return true;
         }
-        mpp = &(mp->next);
+        pp = &(p->next);
     }
-
-    if (rw_action_wrapper(map->buckets_guards[h], END_WRITE) != 0)
-        return NULL;
-
-    errno = ENOENT;
-    return NULL;
+    return false;
 }
 
-size_t hmap_size(HashMap *map)
+size_t hmap_size(HashMap* map)
 {
     return map->size;
 }
 
-HashMapIterator hmap_iterator(HashMap *map)
+HashMapIterator hmap_iterator(HashMap* map)
 {
-    HashMapIterator it = {0, map->buckets[0]};
+    HashMapIterator it = { 0, map->buckets[0] };
     return it;
 }
 
-bool hmap_next(HashMap *map, HashMapIterator *it, const char **key, void **value)
+bool hmap_next(HashMap* map, HashMapIterator* it, const char** key, void** value)
 {
-    MapPair *mp = it->pair;
-    while (!mp && it->bucket < N_BUCKETS - 1)
-    {
-        mp = map->buckets[++it->bucket];
+    Pair* p = it->pair;
+    while (!p && it->bucket < N_BUCKETS - 1) {
+        p = map->buckets[++it->bucket];
     }
-    if (!mp)
+    if (!p)
         return false;
-    *key = mp->key;
-    *value = mp->value;
-    it->pair = mp->next;
+    *key = p->key;
+    *value = p->value;
+    it->pair = p->next;
     return true;
 }
 
-unsigned int get_hash(const char *key)
+static unsigned int get_hash(const char* key)
 {
     unsigned int hash = 17;
-    while (*key)
-    {
+    while (*key) {
         hash = (hash << 3) + hash + *key;
         ++key;
     }
     return hash % N_BUCKETS;
-}
-
-char * map_list(HashMap *map)
-{
-    int err = 0;
-
-    for (int i = 0; i < N_BUCKETS; i++)
-    {
-        if ((err = rw_action_wrapper(map->buckets_guards[i], START_READ)) != 0)
-        {
-            while (i-- >= 0)
-                rw_action_wrapper(map->buckets_guards[i], END_READ);
-            return NULL;
-        }
-    }
-
-    char* list = make_map_contents_string(map);
-
-    for (int i = 0; i < N_BUCKETS; i++)
-    {
-        if ((err = rw_action_wrapper(map->buckets_guards[i], END_READ)) != 0)
-        {
-            free(list);
-            return NULL;
-        }
-    }
-
-    return list;
 }

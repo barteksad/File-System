@@ -30,10 +30,5 @@ void print_map(HashMap* map, int rec_depth) {
     printf("\n");
 }
 
-void try_insert(HashMap* map, const char * key ,void* value, bool has_access)
-{
-    if(hmap_insert(map, key, value, has_access) != 0)
-        hmap_free(value);
-}
 
 #endif

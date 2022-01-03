@@ -10,8 +10,9 @@
 #include <libgen.h>
 
 #include "Tree.h"
-#include "err.h"
 #include "HashMap.h"
+#include "Utils.h"
+#include "err.h"
 #include "path_utils.h"
 
 #define max(a, b) \
@@ -22,39 +23,50 @@
 struct Tree
 {
     HashMap *tree_map;
+    ReadWrite rw;
 };
 
 typedef struct PathGetter
 {
     char *path;
     ReadWrite *guards[2050];
-    HashMap *map;
+    Tree *tree;
     size_t guard_write_pos;
     AccessType first_acces;
+    AccessType last_access;
+    bool last_used;
 
 } PathGetter;
 
-static PathGetter *pg_create(const char *_path, HashMap *_map)
+static PathGetter *pg_create(const char *_path, Tree *_tree)
 {
-    PathGetter *pg=NULL;
+    PathGetter *pg = NULL;
     pg = (PathGetter *)malloc(sizeof(PathGetter));
 
     if (!pg)
         return NULL;
 
-    pg->map = _map;
+    pg->tree = _tree;
     pg->path = NULL;
     pg->path = strdup(_path);
     if (!pg->path)
         syserr("dup");
 
     pg->guard_write_pos = 0;
+    pg->last_used = false;
 
     return pg;
 }
 
+// TODO
 void tree_free(Tree *tree)
 {
+    const char* key = NULL;
+    void* value = NULL;
+    HashMapIterator it = hmap_iterator(tree->tree_map);
+    while (hmap_next(tree->tree_map, &it, &key, &value)) {
+        tree_free(value);
+    }
     hmap_free(tree->tree_map);
     free(tree);
 }
@@ -68,62 +80,72 @@ static int pg_free(PathGetter *pg)
 
     for (int i = pg->guard_write_pos - 1; i >= 0; i--)
     {
-        if (i == 0)
+        AccessType current_access;
+        if(pg->last_used)
         {
-            if (pg->first_acces != NONE)
-                err = rw_action_wrapper(pg->guards[i], pg->first_acces + 1);
+            pg->last_used = false;
+            current_access = pg->last_access;
         }
+        else if(i == 0)
+            current_access = pg->first_acces;
         else
-            err = rw_action_wrapper(pg->guards[i], END_READ);
+            current_access = START_WRITE;
+
+        if(current_access != NONE)
+            current_access += 1;
+
+        err = rw_action_wrapper(pg->guards[i], current_access);
+        
         if (err != 0)
             return err;
     }
-    // if(pg->path)
+
     free(pg->path);
 
     free(pg);
     return 0;
 }
 
-static HashMap *pg_get(PathGetter *pg, AccessType first_acces)
+static Tree *pg_get(PathGetter *pg, AccessType first_acces, AccessType last_access)
 {
     pg->first_acces = first_acces;
+    pg->last_access = last_access;
 
     char delim[] = "/";
     char *path = strtok(pg->path, delim);
 
-    HashMap *tmp = pg->map;
-    Pair *p=NULL;
+    Tree *tmp = pg->tree;
 
     while (path != NULL)
     {
-        if (pg->guard_write_pos == 0)
-            p = hmap_get(tmp, path, first_acces);
-        else
-            p = hmap_get(tmp, path, START_READ);
-        if (!p || !p->value)
+        ReadWrite *curr_rw = &tmp->rw;
+        AccessType current_access;
+        char * next_path = strtok(NULL, delim);
+        
+        if (!next_path && !(pg->guard_write_pos == 0 && first_acces == NONE))
         {
-            if (p)
-            {
-                errno = ENOENT;
-                if (pg->guard_write_pos == 0 && first_acces != NONE)
-                    rw_action_wrapper(p->bucket_guard, first_acces + 1);
-                else
-                    rw_action_wrapper(p->bucket_guard, END_READ);
-                free(p);
-            }
-            else
-                errno = -1;
+            pg->last_used = true;
+            current_access = last_access;
+        }
+        else if(pg->guard_write_pos == 0)
+            current_access = first_acces;
+        else
+            current_access = START_WRITE;
+
+        if(rw_action_wrapper(curr_rw, current_access) != 0)
+        {
+            return NULL;
+        }
+        pg->guards[pg->guard_write_pos++] = curr_rw;
+        tmp = (Tree *) hmap_get(tmp->tree_map, path);
+
+        if (!tmp)
+        {
+            errno = ENOENT;
             return NULL;
         }
         else
-        {
-            pg->guards[pg->guard_write_pos++] = p->bucket_guard;
-            tmp = p->value;
-        }
-
-        free(p);
-        path = strtok(NULL, delim);
+            path = next_path;
     }
 
     return tmp;
@@ -136,12 +158,19 @@ Tree *tree_new()
     if (!t)
         return NULL;
 
+    if(rw_init(&t->rw) != 0)
+    {
+        free(t);
+        syserr("Failed to create new tree!");
+    }
+    
     t->tree_map = hmap_new();
     if(!t->tree_map)
     {
         free(t);
         syserr("Failed to create new tree!");
     }
+
 
     return t;
 }
@@ -154,6 +183,7 @@ int tree_create(Tree *tree, const char *path)
     if (strcmp(path, "/") == 0)
         return EEXIST;
 
+    int err = 0;
     char *dirc, *basec, *bname, *dname;
 
     dirc = strdup(path);
@@ -168,19 +198,20 @@ int tree_create(Tree *tree, const char *path)
     if (strcmp(dname, "/") == 0)
         swap_bd_name = true;
 
-    HashMap *map = tree->tree_map;
     PathGetter *pg = NULL;
 
     if (!swap_bd_name)
     {
-        pg = pg_create(dname, map);
+        pg = pg_create(dname, tree);
         if (pg)
-            map = pg_get(pg, START_READ);
+            tree = pg_get(pg, START_READ, START_WRITE);
         else
-            map = NULL;
+            tree = NULL;
     }
+    else
+        err = rw_action_wrapper(&tree->rw, START_WRITE);
 
-    if (!map)
+    if (!tree || err != 0)
     {
         if (pg)
             pg_free(pg);
@@ -189,18 +220,26 @@ int tree_create(Tree *tree, const char *path)
         return errno;
     }
 
-    HashMap *new_folder = hmap_new();
-    int err = hmap_insert(map, bname, new_folder, false);
-    if (err)
-        hmap_free(new_folder);
+    Tree *new_folder = tree_new();
+    bool is_inserted = hmap_insert(tree->tree_map, bname, new_folder);
+
+    if(!is_inserted)
+        tree_free(new_folder);
 
     if (pg)
         pg_free(pg);
+    else
+        err = rw_action_wrapper(&tree->rw, END_WRITE);
 
     free(dirc);
     free(basec);
 
-    return err;
+    if (err != 0)
+        return err;
+    else if(is_inserted)
+        return 0;
+    else
+        return EEXIST;
 }
 
 int tree_remove(Tree *tree, const char *path)
@@ -211,6 +250,7 @@ int tree_remove(Tree *tree, const char *path)
     if(strcmp(path, "/") == 0)
         return EBUSY;
 
+    int err = 0;
     char *dirc, *basec, *bname, *dname;
 
     dirc = strdup(path);
@@ -225,19 +265,20 @@ int tree_remove(Tree *tree, const char *path)
     if (strcmp(dname, "/") == 0)
         swap_bd_name = true;
 
-    HashMap *map = tree->tree_map;
     PathGetter *pg = NULL;
 
     if (!swap_bd_name)
     {
-        pg = pg_create(dname, map);
+        pg = pg_create(dname, tree);
         if (pg)
-            map = pg_get(pg, START_READ);
+            tree = pg_get(pg, START_READ, START_WRITE);
         else
-            map = NULL;
+            tree = NULL;
     }
+    else
+        err = rw_action_wrapper(&tree->rw, START_WRITE);
 
-    if (!map)
+    if (!tree || err != 0)
     {
         if (pg)
             pg_free(pg);
@@ -246,21 +287,32 @@ int tree_remove(Tree *tree, const char *path)
         return errno;
     }
 
-    Pair *p = hmap_remove(map, bname, false, true);
-
-    int err = 0;
-
-    if (p)
+    Tree * to_be_removed = hmap_get(tree->tree_map, bname);
+    if(!to_be_removed || hmap_size(to_be_removed->tree_map) != 0)
     {
-        hmap_free(p->value);
-        err = rw_action_wrapper(p->bucket_guard, END_WRITE);
-        free(p);
+        if (pg)
+            pg_free(pg);
+        else
+            err = rw_action_wrapper(&tree->rw, END_WRITE);
+        free(dirc);
+        free(basec);
+
+        if(!to_be_removed)
+            return ENOENT;
+        else
+            return ENOTEMPTY;
     }
-    else
-        err = errno;
+
+    bool is_removed = hmap_remove(tree->tree_map, bname);
+    if(!is_removed)
+        syserr("hmap broken!");
+
+    tree_free(to_be_removed);
 
     if (pg)
         pg_free(pg);
+    else
+        err = rw_action_wrapper(&tree->rw, END_WRITE);
 
     free(dirc);
     free(basec);
@@ -273,32 +325,45 @@ char *tree_list(Tree *tree, const char *path)
     if (!is_path_valid(path))
         return NULL;
 
-    HashMap *map = tree->tree_map;
+    int err = 0;
     PathGetter *pg = NULL;
 
     if (strcmp(path, "/") != 0)
     {
-        pg = pg_create(path, map);
+        pg = pg_create(path, tree);
         if (pg)
-            map = pg_get(pg, START_READ);
+            tree = pg_get(pg, START_READ, START_READ);
         else
-            map = NULL;
+            tree = NULL;
     }
+    else
+        err = rw_action_wrapper(&tree->rw, START_READ);
 
-    if (!map)
+    if (!tree || err != 0)
     {
         if (pg)
             pg_free(pg);
         return NULL;
     }
 
-    char *list = map_list(map);
+    char *list = NULL;
+    list = make_map_contents_string(tree->tree_map);
 
     if (pg)
         pg_free(pg);
+    else
+        err = rw_action_wrapper(&tree->rw, END_READ);
+
+    if(err != 0)
+    {
+        if(list)
+            free(list);
+        return NULL;
+    }
 
     return list;
 }
+
 
 int tree_move(Tree *tree, const char *source, const char *target)
 {
@@ -311,7 +376,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(target, "/") == 0)
         return EEXIST;
 
-    if (strstr(target, source) == target || strstr(source, target) == source)
+    if ((strstr(target, source) == target || strstr(source, target) == source))
         return -2; // moving tree into subtree
 
     int err = 0;
@@ -335,21 +400,23 @@ int tree_move(Tree *tree, const char *source, const char *target)
 
     get_shared_path(source, target, shared, source_rest, target_rest);
 
-    HashMap *shared_map = tree->tree_map;
+    Tree *shared_tree = tree;
     PathGetter *pg_shared = NULL;
 
     if (strcmp(shared, "/") != 0)
     {
-        pg_shared = pg_create(shared, shared_map);
+        pg_shared = pg_create(shared, shared_tree);
         if (pg_shared)
-            shared_map = pg_get(pg_shared, START_READ);
+            shared_tree = pg_get(pg_shared, START_READ, START_READ);
         else
-            shared_map = NULL;
+            shared_tree = NULL;
     }
+    // else
+    //     err = rw_action_wrapper(&shared_tree->rw, START_READ);
 
     free(shared);
 
-    if (!shared_map)
+    if (!shared_tree)
     {
         if (pg_shared)
             pg_free(pg_shared);
@@ -400,17 +467,16 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (target_dirc == NULL)
         target_dirc = target_rest;
 
-    Pair *p = NULL;
     AccessType shared_atype;
 
-    HashMap *source_map = shared_map;
+    Tree *source_tree = shared_tree;
     PathGetter *pg_source = NULL;
 
-    HashMap *target_map = shared_map;
+    Tree *target_tree = shared_tree;
     PathGetter *pg_target = NULL;
 
-    if (get_hash(source_first) == get_hash(target_first))
-    {
+    // if (get_hash(source_first) == get_hash(target_first))
+    // {
 
         if (strcmp(source_dirc, "/") == 0 || strcmp(target_dirc, "/") == 0)
         {
@@ -429,18 +495,13 @@ int tree_move(Tree *tree, const char *source, const char *target)
             free(target_rest);
         }
 
-        p = hmap_get(source_map, source_first, shared_atype);
-
-        if (!p || !p->value)
+        err = rw_action_wrapper(&shared_tree->rw, shared_atype);
+        
+        if (err != 0)
         {
             if (pg_shared)
                 pg_free(pg_shared);
 
-            if (p)
-            {
-                rw_action_wrapper(p->bucket_guard, shared_atype + 1);
-                free(p);
-            }
             free(source_bname);
             free(target_bname);
             free(source_first);
@@ -448,34 +509,32 @@ int tree_move(Tree *tree, const char *source, const char *target)
             free(source_dname);
             free(target_dname);
 
-            if (p)
-                return ENOENT;
-            else
-                return -1;
+            return err;
         }
 
-        pg_source = pg_create(source_dname, source_map);
+        pg_source = pg_create(source_dname, source_tree);
         if (pg_source)
-            source_map = pg_get(pg_source, NONE);
+            source_tree = pg_get(pg_source, NONE, NONE);
         else
-            source_map = NULL;
+            source_tree = NULL;
 
-        pg_target = pg_create(target_dname, target_map);
+        pg_target = pg_create(target_dname, target_tree);
         if (pg_target)
-            target_map = pg_get(pg_target, NONE);
+            target_tree = pg_get(pg_target, NONE, NONE);
         else
-            target_map = NULL;
+            target_tree = NULL;
 
-        if (!source_map || !target_map)
+        if (!source_tree || !target_tree)
         {
             if (pg_source)
                 pg_free(pg_source);
             if (pg_target)
                 pg_free(pg_target);
-            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
+            rw_action_wrapper(&shared_tree->rw, shared_atype + 1);
             if (pg_shared)
                 pg_free(pg_shared);
-            free(p);
+            // else
+            //     rw_action_wrapper(&shared_tree->rw, END_READ);
             free(source_bname);
             free(target_bname);
             free(source_first);
@@ -485,183 +544,177 @@ int tree_move(Tree *tree, const char *source, const char *target)
             return ENOENT;
         }
 
-        Pair *source_p;
-        Pair *target_p;
+        Tree *source_to_remove=NULL;
+        Tree *target_to_insert=1;
 
         if (strcmp(source_dname, "/") == 0)
-            source_p = hmap_get(source_map, source_bname, NONE);
+            source_to_remove = hmap_get(source_tree->tree_map, source_bname);
         else
-            source_p = hmap_get(source_map, source_bname, START_WRITE);
+        {
+            err = rw_action_wrapper(&source_tree->rw, START_WRITE);
+            if(err==0)
+                source_to_remove = hmap_get(source_tree->tree_map, source_bname);
+        }
 
         if (strcmp(target_dname, "/") == 0)
-            target_p = hmap_get(target_map, target_bname, NONE);
+            target_to_insert = hmap_get(target_tree->tree_map, target_bname);
         else
-            target_p = hmap_get(target_map, target_bname, START_WRITE);
-
-        if (!source_p || !target_p || !source_p->value || target_p->value)
         {
-            if (strcmp(source_dname, "/") != 0 && source_p)
-                rw_action_wrapper(source_p->bucket_guard, END_WRITE);
-
-            if (strcmp(target_dname, "/") != 0 && target_p)
-                rw_action_wrapper(target_p->bucket_guard, END_WRITE);
-
-            if (pg_source)
-                pg_free(pg_source);
-            if (pg_target)
-                pg_free(pg_target);
-            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
-            free(p);
-            if (pg_shared)
-                pg_free(pg_shared);
-            free(source_bname);
-            free(target_bname);
-            free(source_first);
-            free(target_first);
-            free(source_dname);
-            free(target_dname);
-
-            if (source_p && !source_p->value)
-                err = ENOENT;
-            if (target_p && target_p->value)
-                err = EEXIST;
-
-            free(source_p);
-            free(target_p);
-
-            return err;
+            err = rw_action_wrapper(&target_tree->rw, START_WRITE);
+            if(err==0)
+                target_to_insert = hmap_get(target_tree->tree_map, target_bname);
         }
 
-        Pair *source_p_removed = hmap_remove(source_map, source_bname, true, false);
-        err = hmap_insert(target_map, target_bname, source_p_removed->value, true);
-
-        if (source_p_removed)
+        if (!source_to_remove || target_to_insert || err)
         {
             if (strcmp(source_dname, "/") != 0)
-                rw_action_wrapper(source_p->bucket_guard, END_WRITE);
-            // if(strcmp(target_dname, "/") != 0 && target_p)
-            //     rw_action_wrapper(target_p->bucket_guard, END_WRITE);
-        }
+                rw_action_wrapper(&source_tree->rw, END_WRITE);
 
-        if (pg_source)
-            pg_free(pg_source);
-        if (pg_target)
-            pg_free(pg_target);
-        if (strcmp(target_dname, "/") != 0)
-            rw_action_wrapper(p->bucket_guard, shared_atype + 1);
-        if (pg_shared)
-            pg_free(pg_shared);
-        free(p);
-        free(source_p_removed);
-        free(source_bname);
-        free(target_bname);
-        free(source_first);
-        free(target_first);
-        free(source_dname);
-        free(target_dname);
-        free(source_p);
-        free(target_p);
+            if (strcmp(target_dname, "/") != 0)
+                rw_action_wrapper(&target_tree->rw, END_WRITE);
 
-        return err;
-    }
-    else
-    {
-        free(source_rest);
-        free(target_rest);
-
-        pg_source = pg_create(source_dname, source_map);
-        if (pg_source)
-            source_map = pg_get(pg_source, START_READ);
-        else
-            source_map = NULL;
-
-        pg_target = pg_create(target_dname, target_map);
-        if (pg_target)
-            target_map = pg_get(pg_target, START_READ);
-        else
-            target_map = NULL;
-
-        if (!source_map || !target_map)
-        {
             if (pg_source)
                 pg_free(pg_source);
             if (pg_target)
                 pg_free(pg_target);
+            rw_action_wrapper(&shared_tree->rw, shared_atype + 1);
             if (pg_shared)
                 pg_free(pg_shared);
-            free(source_first);
-            free(target_first);
             free(source_bname);
             free(target_bname);
-            free(source_dname);
-            free(target_dname);
-            return ENOENT;
-        }
-
-        Pair *source_p;
-        Pair *target_p;
-
-        source_p = hmap_get(source_map, source_bname, START_WRITE);
-        target_p = hmap_get(target_map, target_bname, START_WRITE);
-
-        if (!source_p || !target_p || !source_p->value || target_p->value)
-        {
-            if (pg_source)
-                pg_free(pg_source);
-            if (pg_target)
-                pg_free(pg_target);
-            if (pg_shared)
-                pg_free(pg_shared);
             free(source_first);
             free(target_first);
-            free(source_bname);
-            free(target_bname);
             free(source_dname);
             free(target_dname);
 
-            if (source_p)
-                rw_action_wrapper(source_p->bucket_guard, END_WRITE);
-            if (target_p)
-                rw_action_wrapper(target_p->bucket_guard, END_WRITE);
-
-            if (source_p && !source_p->value)
+            if (!source_to_remove)
                 err = ENOENT;
-            else if (target_p && target_p->value)
+            else if (target_to_insert)
                 err = EEXIST;
-
-            free(source_p);
-            free(target_p);
 
             return err;
         }
 
-        Pair *source_p_removed = hmap_remove(source_map, source_bname, true, false);
-        err = hmap_insert(target_map, target_bname, source_p_removed->value, true);
 
-        if (source_p_removed)
-        {
-            rw_action_wrapper(source_p->bucket_guard, END_WRITE);
-            // rw_action_wrapper(target_p->bucket_guard, END_WRITE);
-        }
+        bool is_removed = hmap_remove(source_tree->tree_map, source_bname);
+        if(!is_removed)
+            syserr("rw lock broken!");
+        bool is_inserted = hmap_insert(target_tree->tree_map, target_bname, source_to_remove);
+        if(!is_inserted)
+            syserr("rw lock broken!");
 
-        if (pg_source)
+
+        if (strcmp(source_dname, "/") != 0)
+            rw_action_wrapper(&source_tree->rw, END_WRITE);
+        if (strcmp(target_dname, "/") != 0)
+            rw_action_wrapper(&target_tree->rw, END_WRITE);
+        if(pg_source)
             pg_free(pg_source);
-        if (pg_target)
+        if(pg_target)
             pg_free(pg_target);
+        rw_action_wrapper(&shared_tree->rw, shared_atype + 1);
         if (pg_shared)
             pg_free(pg_shared);
-        free(source_p_removed);
-        free(source_first);
-        free(target_first);
         free(source_bname);
         free(target_bname);
+        free(source_first);
+        free(target_first);
         free(source_dname);
         free(target_dname);
-        free(source_p);
-        free(target_p);
 
         return err;
-    }
+    // }
+    // else
+    // {
+    //     free(source_rest);
+    //     free(target_rest);
+
+    //     pg_source = pg_create(source_dname, source_tree);
+    //     if (pg_source)
+    //         source_tree = pg_get(pg_source, START_READ, NONE);
+    //     else
+    //         source_tree = NULL;
+
+    //     pg_target = pg_create(target_dname, target_tree);
+    //     if (pg_target)
+    //         target_tree = pg_get(pg_target, START_READ, NONE);
+    //     else
+    //         target_tree = NULL;
+
+    //     if (!source_tree || !target_tree)
+    //     {
+    //         if (pg_source)
+    //             pg_free(pg_source);
+    //         if (pg_target)
+    //             pg_free(pg_target);
+    //         if (pg_shared)
+    //             pg_free(pg_shared);
+    //         free(source_first);
+    //         free(target_first);
+    //         free(source_bname);
+    //         free(target_bname);
+    //         free(source_dname);
+    //         free(target_dname);
+    //         return ENOENT;
+    //     }
+
+    //     Tree *source_to_remove=NULL;
+    //     Tree *target_to_insert=1;
+
+    //     err = rw_action_wrapper(&source_tree->rw, START_WRITE);
+    //     err = rw_action_wrapper(&target_tree->rw, START_WRITE);
+    //     if(err!=0)
+    //     {
+    //         source_to_remove = hmap_get(source_tree->tree_map, source_bname);
+    //         target_to_insert = hmap_get(target_tree->tree_map, target_bname);
+    //     }
+
+    //     if (!source_to_remove || target_to_insert || err)
+    //     {
+    //         if (pg_source)
+    //             pg_free(pg_source);
+    //         if (pg_target)
+    //             pg_free(pg_target);
+    //         if (pg_shared)
+    //             pg_free(pg_shared);
+    //         free(source_first);
+    //         free(target_first);
+    //         free(source_bname);
+    //         free(target_bname);
+    //         free(source_dname);
+    //         free(target_dname);
+
+    //         err = rw_action_wrapper(&source_tree->rw, END_WRITE);
+    //         err = rw_action_wrapper(&target_tree->rw, END_WRITE);
+
+    //         if (!source_to_remove)
+    //             err = ENOENT;
+    //         else if (target_to_insert)
+    //             err = EEXIST;
+
+    //         return err;
+    //     }
+
+    //     source_to_remove = hmap_remove(source_tree->tree_map, source_bname);
+    //     err = hmap_insert(target_tree->tree_map, target_bname, source_to_remove);
+
+
+    //     err = rw_action_wrapper(&source_tree->rw, END_WRITE);
+    //     if (pg_source)
+    //         pg_free(pg_source);
+    //     if (pg_target)
+    //         pg_free(pg_target);
+    //     if (pg_shared)
+    //         pg_free(pg_shared);
+    //     free(source_first);
+    //     free(target_first);
+    //     free(source_bname);
+    //     free(target_bname);
+    //     free(source_dname);
+    //     free(target_dname);
+
+    //     return err;
+    // }
 }
 
 #endif
