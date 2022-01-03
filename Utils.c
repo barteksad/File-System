@@ -253,6 +253,9 @@ int rw_remove(ReadWrite *rw)
 
 int rw_action_wrapper(ReadWrite *rw, AccessType a_type)
 {
+    if(!rw)
+        return ENOENT;
+        
     switch (a_type)
     {
     case START_READ:
