@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <libgen.h>
+#include <assert.h>
 
 #include "Tree.h"
 #include "HashMap.h"
@@ -33,7 +34,7 @@ struct Tree
 typedef struct PathGetter
 {
     char *path;
-    ReadWrite *guards[2050];
+    ReadWrite *guards[MAX_PATH_LENGTH / 2];
     Tree *tree;
     size_t guard_write_pos;
     AccessType first_acces;
@@ -78,6 +79,8 @@ void tree_free(Tree *tree)
     {
         tree_free(value);
     }
+    if(rw_destroy(&tree->rw) != 0)
+        syserr("failed to destroy rw lock!");
     hmap_free(tree->tree_map);
     free(tree);
 }
@@ -404,7 +407,6 @@ int tree_move(Tree *tree, const char *source, const char *target)
     }
 
     get_shared_path(source, target, shared, source_rest, target_rest);
-
     char *source_dirc = NULL, *source_first = NULL, *source_bname = NULL, *source_dname = NULL;
     char *target_dirc = NULL, *target_first = NULL, *target_bname = NULL, *target_dname = NULL;
 
@@ -482,8 +484,6 @@ int tree_move(Tree *tree, const char *source, const char *target)
     if (strcmp(source_dirc, "/") == 0 || strcmp(target_dirc, "/") == 0)
     {
         shared_atype = START_WRITE;
-        free(source_rest);
-        free(target_rest);
     }
     else
     {
@@ -492,9 +492,10 @@ int tree_move(Tree *tree, const char *source, const char *target)
         shared_atype = START_READ;
         source_dname = make_path_to_parent(source_rest, NULL);
         target_dname = make_path_to_parent(target_rest, NULL);
-        free(source_rest);
-        free(target_rest);
     }
+
+    free(source_rest);
+    free(target_rest);
 
     err = rw_action_wrapper(&shared_tree->rw, shared_atype);
 

@@ -130,7 +130,7 @@ char* make_map_contents_string(HashMap* map)
     }
 
     char* result = NULL;
-    result = malloc(result_size);
+    result = malloc(result_size * sizeof(char));
     if(!result)
     {
         errno = -1;
