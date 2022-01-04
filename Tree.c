@@ -43,7 +43,7 @@ typedef struct PathGetter
 
 } PathGetter;
 
-static PathGetter *pg_create(const char *_path, Tree *_tree)
+PathGetter *pg_create(const char *_path, Tree *_tree)
 {
     PathGetter *pg = NULL;
     pg = (PathGetter *)malloc(sizeof(PathGetter));
@@ -85,7 +85,7 @@ void tree_free(Tree *tree)
     free(tree);
 }
 
-static int pg_free(PathGetter *pg)
+int pg_free(PathGetter *pg)
 {
     if (!pg)
         return 0;
@@ -120,7 +120,7 @@ static int pg_free(PathGetter *pg)
     return 0;
 }
 
-static Tree *pg_get(PathGetter *pg, AccessType first_acces, AccessType last_access)
+Tree *pg_get(PathGetter *pg, AccessType first_acces, AccessType last_access)
 {
     pg->first_acces = first_acces;
     pg->last_access = last_access;
@@ -494,8 +494,10 @@ int tree_move(Tree *tree, const char *source, const char *target)
         target_dname = make_path_to_parent(target_rest, NULL);
     }
 
-    free(source_rest);
-    free(target_rest);
+    if(source_rest)
+        free(source_rest);
+    if(target_rest)
+        free(target_rest);
 
     err = rw_action_wrapper(&shared_tree->rw, shared_atype);
 
