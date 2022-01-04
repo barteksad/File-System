@@ -25,21 +25,28 @@
 #define MALLOC_FAILED -1
 #define MOVE_SUBTREES -2
 
+/*
+    Tree consists of hmap to store folder content and read-write lock
+*/
 struct Tree
 {
     HashMap *tree_map;
     ReadWrite rw;
 };
 
+/*
+    PathGetter is used to get a path and lock folders along the way
+    it also remebers those locks and unlocks it later
+*/
 typedef struct PathGetter
 {
     char *path;
     ReadWrite *guards[MAX_PATH_LENGTH / 2];
     Tree *tree;
     size_t guard_write_pos;
-    AccessType first_acces;
-    AccessType last_access;
-    bool last_used;
+    AccessType first_acces; // rw lock on first folder on path
+    AccessType last_access; // rw lock on last folder on path
+    bool last_used;         // if last acces was used, if path is one-folder then first access has higher priority
 
 } PathGetter;
 
@@ -79,7 +86,7 @@ void tree_free(Tree *tree)
     {
         tree_free(value);
     }
-    if(rw_destroy(&tree->rw) != 0)
+    if (rw_destroy(&tree->rw) != 0)
         syserr("failed to destroy rw lock!");
     hmap_free(tree->tree_map);
     free(tree);
@@ -443,17 +450,20 @@ int tree_move(Tree *tree, const char *source, const char *target)
         else
             shared_tree = NULL;
     }
-   
+
     free(shared);
 
     if (!shared_tree)
     {
         pg_free(pg_shared);
+        free(source_first);
+        free(target_first);
+        free(source_bname);
+        free(target_bname);
         free(source_rest);
         free(target_rest);
         return ENOENT;
     }
-
 
     source_dirc = split_path(source_rest, source_first);
     target_dirc = split_path(target_rest, target_first);
@@ -480,7 +490,6 @@ int tree_move(Tree *tree, const char *source, const char *target)
     Tree *target_tree = shared_tree;
     PathGetter *pg_target = NULL;
 
-
     if (strcmp(source_dirc, "/") == 0 || strcmp(target_dirc, "/") == 0)
     {
         shared_atype = START_WRITE;
@@ -494,9 +503,9 @@ int tree_move(Tree *tree, const char *source, const char *target)
         target_dname = make_path_to_parent(target_rest, NULL);
     }
 
-    if(source_rest)
+    if (source_rest)
         free(source_rest);
-    if(target_rest)
+    if (target_rest)
         free(target_rest);
 
     err = rw_action_wrapper(&shared_tree->rw, shared_atype);
@@ -542,7 +551,7 @@ int tree_move(Tree *tree, const char *source, const char *target)
     }
 
     Tree *source_to_remove = NULL;
-    Tree *target_to_insert = 1;
+    Tree *target_to_insert = (Tree *)1;
 
     if (strcmp(source_dname, "/") == 0)
         source_to_remove = hmap_get(source_tree->tree_map, source_bname);

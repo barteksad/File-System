@@ -30,7 +30,7 @@ bool is_path_valid(const char* path);
 //     const char* subpath = path;
 //     while (subpath = split_path(subpath, component))
 //         printf("%s", component);
-const char* split_path(const char* path, char* component);
+char* split_path(const char* path, char* component);
 
 // Return a copy of the subpath obtained by removing the last component.
 // The caller should free the result, unless it is NULL.

@@ -11,11 +11,11 @@ int rw_init(ReadWrite *rw)
     int err;
 
     if ((err = pthread_mutex_init(&rw->lock, 0)) != 0)
-        return err; // syserr (err, "mutex init failed");
+        return err;
     if ((err = pthread_cond_init(&rw->readers, 0)) != 0)
-        return err; // syserr (err, "cond init readers failed");
+        return err;
     if ((err = pthread_cond_init(&rw->writers, 0)) != 0)
-        return err; // syserr (err, "cond init writers failed");
+        return err;
 
     rw->rcount = 0;
     rw->wcount = 0;
@@ -32,11 +32,11 @@ int rw_destroy(ReadWrite *rw)
     int err;
 
     if ((err = pthread_cond_destroy(&rw->readers)) != 0)
-        return err; // syserr (err, "cond readers destroy 1 failed");
+        return err;
     if ((err = pthread_cond_destroy(&rw->writers)) != 0)
-        return err; // syserr (err, "cond writers rw_destroy failed");
+        return err;
     if ((err = pthread_mutex_destroy(&rw->lock)) != 0)
-        return err; // syserr (err, "mutex rw_destroy failed");
+        return err;
 
     return 0;
 }
@@ -61,7 +61,7 @@ int rw_start_read(ReadWrite *rw)
     if (rw->rwait > 0 && rw->change == 1)
     {
         if ((err = pthread_cond_signal(&rw->readers)) != 0)
-            return err; // syserr (err, "cond signal rwait failed");
+            return err;
     }
     else
         rw->change = 0;
@@ -98,7 +98,7 @@ int rw_end_read(ReadWrite *rw)
     }
 
     if ((err = pthread_mutex_unlock(&rw->lock)) != 0)
-        return err; // syserr (err, "unlock failed");
+        return err;
 
     return 0;
 }
@@ -121,8 +121,7 @@ int rw_start_write(ReadWrite *rw)
     rw->wcount++;
 
     if ((err = pthread_mutex_unlock(&rw->lock)) != 0)
-        return err; // syserr (err, "unlock failed");
-
+        return err;
     return 0;
 }
 

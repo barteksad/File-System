@@ -10,69 +10,74 @@
 #include <unistd.h>
 #include "pthread.h"
 #include <assert.h>
+#include <errno.h>
 
 static void* run2(void *data)
 {
-
-    for(int i = 0; i < 1000; i++)
-    {
-
     Tree *t = (Tree *) data;
+    int err = 0;
 
-    tree_create(t, "/a/");
-    tree_create(t, "/a/b/");
-    tree_create(t, "/a/b/c/");
-    tree_remove(t, "/a/b/c/");
-    tree_remove(t, "/a/b/");
-    tree_remove(t, "/a/");
-    tree_create(t, "/a/");
+    err |= tree_create(t, "/a/");
+    err |= tree_create(t, "/a/b/");
+    err |= tree_create(t, "/a/b/c/");
+    err |= tree_remove(t, "/a/b/c/");
 
-    tree_create(t, "/b/");
-    tree_remove(t, "/b/");
-    tree_create(t, "/b/");
+    err |= tree_create(t, "/a/b/c/");
+    err |= tree_create(t, "/a/b/d/");
+    err |= tree_create(t, "/a/b/c/f/");
+    err |= tree_create(t, "/a/b/d/g/");
+    
+    err |= tree_create(t, "/a/b/c/f/h/");
+    err |= tree_create(t, "/a/b/d/g/i/");
 
-    tree_create(t, "/c/");
-    tree_remove(t, "/c/");
-    tree_create(t, "/c/");
+    err |= tree_move(t, "/a/b/c/f/", "/a/b/d/g/i/x/");
 
-    tree_create(t, "/d/");
-    tree_remove(t, "/d/");
-    tree_create(t, "/d/j/k");
+    char *l;
 
-    tree_create(t, "/e/");
-    tree_remove(t, "/e/");
-    tree_create(t, "/e/");
+    l = tree_list(t, "/a/b/c/");
+    // assert(strcmp(l, "") == 0);
+    free(l);
 
-    tree_create(t, "/f/");
-    tree_remove(t, "/f/");
-    tree_create(t, "/f/");
+    l = tree_list(t, "/a/b/d/g/i/");
+    // assert(strcmp(l, "x") == 0);
+    free(l);
 
-    tree_create(t, "/g/");
-    tree_remove(t, "/g/");
-    tree_create(t, "/g/");
+    l = tree_list(t, "/a/b/d/g/i/x/");
+    // assert(strcmp(l, "h") == 0);
+    free(l);
 
-    tree_create(t, "/h/");
-    tree_remove(t, "/h/");
-    tree_create(t, "/h/");
+    // assert(err == 0);
 
-    tree_create(t, "/i/");
-    tree_remove(t, "/i/");
-    tree_create(t, "/i/");
 
-    tree_create(t, "/j/");
-    tree_remove(t, "/j/");
-    tree_create(t, "/j/");
+    err = tree_create(t, "/a/b/d/g/i/x/");
+    // assert(err == EEXIST);
 
-    tree_create(t, "/k/");
-    tree_remove(t, "/k/");
-    tree_create(t, "/k/");
+    err = tree_create(t, "/");
+    // assert(err == EEXIST);
 
-    tree_create(t, "/l/");
-    tree_remove(t, "/l/");
-    tree_create(t, "/l/");
+    err = tree_move(t, "/a/b/c/f/", "/a/b/d/g/i/x/");
+    // assert(err == ENOENT);
 
-    return 0;
-    }
+    err = tree_move(t, "/a/b/c/", "/a/b/d/g/i/y/j/");
+    // assert(err == ENOENT);
+
+    err = tree_move(t, "/a/b/c/", "/a/b/d/g/i/y/");
+    // assert(err == 0);
+
+    err = tree_create(t, "/a/b/d/g/i/h/");
+
+    err = tree_move(t, "/a/b/d/g/i/h/", "/a/b/d/g/i/x/");
+    // assert(err == EEXIST);
+
+    err = 0;
+    err = tree_remove(t, "/a/b/d/g/i/");
+    // assert(err == ENOTEMPTY);
+
+    err = tree_remove(t, "/a/b/d/g/i/x/h/");
+    // assert(err == 0);
+
+    err = tree_remove(t, "/a/b/d/g/i/x/");
+    // assert(err == 0);
 }
 
 int con_ok2(void)

@@ -26,9 +26,9 @@ bool is_path_valid(const char* path)
     return true;
 }
 
-const char* split_path(const char* path, char* component)
+char* split_path(const char* path, char* component)
 {
-    const char* subpath = strchr(path + 1, '/'); // Pointer to second '/' character.
+    char* subpath = strchr(path + 1, '/'); // Pointer to second '/' character.
     if (!subpath) // Path is "/".
         return NULL;
     if (component) {
