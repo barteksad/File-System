@@ -133,7 +133,8 @@ Tree *pg_get(PathGetter *pg, AccessType first_acces, AccessType last_access)
     pg->last_access = last_access;
 
     char delim[] = "/";
-    char *path = strtok(pg->path, delim);
+    char *saveptr;
+    char *path = strtok_r(pg->path, delim, &saveptr);
 
     int err = 0;
     Tree *tmp = pg->tree;
@@ -142,7 +143,7 @@ Tree *pg_get(PathGetter *pg, AccessType first_acces, AccessType last_access)
     {
         ReadWrite *curr_rw = &tmp->rw;
         AccessType current_access;
-        char *next_path = strtok(NULL, delim);
+        char *next_path = strtok_r(NULL, delim, &saveptr);
 
         if (!next_path && !(pg->guard_write_pos == 0 && first_acces == NONE))
         {
